@@ -24,9 +24,13 @@ jobs:
           python-version: "3.12"
       - name: Install glossary toolchain
         run: |
-          tlmgr install glossaries glossaries-extra bib2gls
+          tlmgr_path="$(find "$HOME" -type f -name tlmgr -print -quit)"
+          test -n "$tlmgr_path"
+          tex_bin="$(dirname "$tlmgr_path")"
+          echo "$tex_bin" >> "$GITHUB_PATH"
+          "$tlmgr_path" install glossaries glossaries-extra bib2gls
           java -version
-          bib2gls --version
+          "$tex_bin/bib2gls" --version
       - name: Run render-contract tests
         run: python -m unittest discover -s tests -v
       - name: Render document example
