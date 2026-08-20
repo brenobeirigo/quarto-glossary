@@ -18,19 +18,16 @@ LaTeX indexing requires the corresponding TeX tools described below.
 
 ## Install
 
-The repository is private, so clone it with an authenticated GitHub CLI and
-install it into each consuming Quarto project:
+Install the extension directly from GitHub in each consuming Quarto project:
 
 ```console
-gh repo clone brenobeirigo/quarto-glossary C:/dev/repos/code/quarto-glossary
 cd C:/path/to/your/quarto-project
-quarto add C:/dev/repos/code/quarto-glossary
+quarto add brenobeirigo/quarto-glossary
 ```
 
 Confirm the installed version with `quarto list extensions`. Quarto copies the
-extension into `_extensions/glossary`; commit that directory so each project
-remains reproducible. If the repository becomes public, the shorter
-`quarto add brenobeirigo/quarto-glossary` command will work.
+extension into `_extensions/brenobeirigo/glossary`; commit that directory so
+each project remains reproducible.
 
 ## Basic use
 
