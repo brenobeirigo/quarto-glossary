@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
       - name: Install glossary toolchain
         run: |
-          tlmgr_path="$(find "$HOME" -type f -name tlmgr -print -quit)"
+          tlmgr_path="$(find "$HOME" -name tlmgr -print -quit)"
           test -n "$tlmgr_path"
           tex_bin="$(dirname "$tlmgr_path")"
           echo "$tex_bin" >> "$GITHUB_PATH"
