@@ -1,0 +1,16 @@
+**/.quarto/
+**/_site/
+**/__pycache__/
+/*.html
+/*.pdf
+/*.tex
+/*.aux
+/*.log
+/*.out
+/*.glo
+/*.gls
+/*.glg
+/*.acn
+/*.acr
+/*.alg
+/*_files/

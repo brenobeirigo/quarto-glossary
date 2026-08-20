@@ -1,0 +1,16 @@
+entries:
+  - id: fleet-management
+    term: fleet management
+    definition: Coordinating a fleet's resources and decisions to meet service objectives.
+
+  - id: adp
+    kind: acronym
+    short: ADP
+    long: approximate dynamic programming
+    definition: A family of methods that approximate downstream value in sequential decisions.
+
+  - id: old-name
+    term: old name
+    definition: This entry exists only to demonstrate retired-key validation.
+    status: retired
+    replacement: Use fleet management.

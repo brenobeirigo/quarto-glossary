@@ -1,0 +1,19 @@
+---
+title: "Glossary extension example"
+filters:
+  - glossary
+glossary:
+  path: glossary.yml
+  include-unused: false
+format:
+  html: default
+  pdf:
+    keep-tex: true
+---
+
+The operator applies [[fleet-management]] principles. A method based on
+[[adp|ADP]] can estimate downstream consequences. A key can also use its
+default display text: [[adp]].
+
+::: {.glossary}
+:::

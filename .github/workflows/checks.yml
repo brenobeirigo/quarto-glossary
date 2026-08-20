@@ -1,0 +1,26 @@
+name: Quarto extension checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: quarto-dev/quarto-actions/setup@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run render-contract tests
+        run: python -m unittest discover -s tests -v
+      - name: Render document example
+        run: quarto render example.qmd --to html
+      - name: Render website example
+        run: quarto render website-example

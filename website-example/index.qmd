@@ -1,0 +1,15 @@
+---
+title: Glossary website example
+---
+
+## [[fleet-management]] decisions
+
+The operator applies [[fleet-management]] principles and may use [[adp|ADP]].
+
+## [[adp|ADP]] methods
+
+Heading references remain plain in the website table of contents, while the
+references in this paragraph keep their tooltips.
+
+::: {.glossary level="2"}
+:::
