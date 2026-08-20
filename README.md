@@ -24,11 +24,17 @@ During development, add this directory to another Quarto project:
 quarto add /path/to/quarto-glossary
 ```
 
-After this directory is published as a GitHub repository, installation becomes:
+For this private GitHub repository, clone with an authenticated GitHub CLI and
+add the local clone to the consuming Quarto project:
 
 ```console
-quarto add brenobeirigo/quarto-glossary
+gh repo clone brenobeirigo/quarto-glossary /path/to/quarto-glossary
+quarto add /path/to/quarto-glossary
 ```
+
+The shorter `quarto add brenobeirigo/quarto-glossary` command works after the
+repository is made public. Quarto's GitHub shorthand does not authenticate to a
+private repository.
 
 Quarto copies extensions into each consuming project. Commit the installed
 `_extensions` directory so old projects remain reproducible.
