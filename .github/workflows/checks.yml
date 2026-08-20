@@ -28,6 +28,7 @@ jobs:
           test -n "$tlmgr_path"
           tex_bin="$(dirname "$tlmgr_path")"
           echo "$tex_bin" >> "$GITHUB_PATH"
+          "$tlmgr_path" update --self
           "$tlmgr_path" install glossaries glossaries-extra bib2gls
           java -version
           "$tex_bin/bib2gls" --version
