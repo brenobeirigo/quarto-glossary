@@ -1,4 +1,5 @@
 **/.quarto/
+_quarto-glossary-*.bib
 **/_site/
 **/__pycache__/
 /*.html

@@ -5,15 +5,24 @@ filters:
 glossary:
   path: glossary.yml
   include-unused: false
+  latex-location-lists: true
+bibliography: references.bib
 format:
   html: default
   pdf:
     keep-tex: true
 ---
 
-The operator applies [[fleet-management]] principles. A method based on
-[[adp|ADP]] can estimate downstream consequences. A key can also use its
-default display text: [[adp]].
+The operator applies [[fleet-management]] principles. At each
+[[decision-epoch]], [[adp]] can estimate downstream consequences. Subsequent
+automatic references use the short form: [[adp]].
+
+Explicit forms are available when academic prose requires them: [[adp|long]],
+[[adp|full]], [[adp|short-plural]], [[decision-epoch|plural]], and
+[[decision-epoch|cap:plural]] at the start of a sentence. The associated
+symbol can be inserted with [[decision-epoch|symbol]]. A reserved form name can
+still be used literally by prefixing it with `=`, as in
+[[decision-epoch|=plural]].
 
 ::: {.glossary}
 :::

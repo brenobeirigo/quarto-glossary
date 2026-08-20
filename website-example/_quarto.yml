@@ -17,3 +17,5 @@ filters:
 glossary:
   path: ../glossary.yml
   include-unused: false
+
+bibliography: ../references.bib

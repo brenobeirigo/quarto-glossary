@@ -4,9 +4,9 @@ title: Glossary website example
 
 ## [[fleet-management]] decisions
 
-The operator applies [[fleet-management]] principles and may use [[adp|ADP]].
+The operator applies [[fleet-management]] principles and may use [[adp]].
 
-## [[adp|ADP]] methods
+## [[adp]] methods
 
 Heading references remain plain in the website table of contents, while the
 references in this paragraph keep their tooltips.

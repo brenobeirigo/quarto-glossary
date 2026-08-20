@@ -2,46 +2,39 @@
 
 [![Quarto extension checks](https://github.com/brenobeirigo/quarto-glossary/actions/workflows/checks.yml/badge.svg)](https://github.com/brenobeirigo/quarto-glossary/actions/workflows/checks.yml)
 
-`glossary` is a dependency-free Quarto Lua filter for one glossary source and
-two publication targets:
+`glossary` is a Quarto Lua filter for academic glossaries and acronym lists
+authored with Obsidian-style wiki links. One YAML or JSON vocabulary produces:
 
-- Obsidian-style `[[key]]` and `[[key|display text]]` references in `.qmd`
-  source;
-- accessible, keyboard-focusable HTML tooltips and a generated glossary;
-- LaTeX `glossaries` entries, references, acronym expansion, and printed
-  glossary sections.
+- accessible, keyboard-focusable HTML tooltips;
+- separate HTML Acronyms and Glossary lists;
+- first-use acronym expansion in HTML and LaTeX;
+- native LaTeX `glossaries` or `glossaries-extra` entries;
+- portable `noidx`, traditional `makeindex`, or Unicode-aware `bib2gls`
+  workflows.
 
-The extension is the reusable form of the project-specific filter recovered
-from `project/rendering/filters/glossary.lua` in the MODRLSO study history. It
-retains that filter's strict unknown-key and retired-key checks while removing
-its hard-coded data path and schema.
+Version 0.2.0 is the reusable form of the filter recovered from the MODRLSO
+study history. It has no Lua or JavaScript runtime dependencies. Advanced
+LaTeX indexing requires the corresponding TeX tools described below.
 
 ## Install
 
-During development, add this directory to another Quarto project:
+The repository is private, so clone it with an authenticated GitHub CLI and
+install it into each consuming Quarto project:
 
 ```console
-quarto add /path/to/quarto-glossary
+gh repo clone brenobeirigo/quarto-glossary C:/dev/repos/code/quarto-glossary
+cd C:/path/to/your/quarto-project
+quarto add C:/dev/repos/code/quarto-glossary
 ```
 
-For this private GitHub repository, clone with an authenticated GitHub CLI and
-add the local clone to the consuming Quarto project:
+Confirm the installed version with `quarto list extensions`. Quarto copies the
+extension into `_extensions/glossary`; commit that directory so each project
+remains reproducible. If the repository becomes public, the shorter
+`quarto add brenobeirigo/quarto-glossary` command will work.
 
-```console
-gh repo clone brenobeirigo/quarto-glossary /path/to/quarto-glossary
-quarto add /path/to/quarto-glossary
-```
+## Basic use
 
-The shorter `quarto add brenobeirigo/quarto-glossary` command works after the
-repository is made public. Quarto's GitHub shorthand does not authenticate to a
-private repository.
-
-Quarto copies extensions into each consuming project. Commit the installed
-`_extensions` directory so old projects remain reproducible.
-
-## Use
-
-Add the filter and its glossary data path to a document or `_quarto.yml`:
+Add the filter and vocabulary path to a document or `_quarto.yml`:
 
 ```yaml
 filters:
@@ -51,115 +44,187 @@ glossary:
   path: glossary.yml
 ```
 
-Reference entries with wiki-link syntax:
+Use a key twice and the acronym expands only on first use:
 
 ```markdown
-The [[fleet-management]] policy uses [[adp|ADP]].
+The [[adp]] policy is evaluated. Later, [[adp]] is abbreviated.
 ```
 
-In headings, wiki links resolve to plain text. They still count as glossary
-usage, but do not create tooltip links or styling in Quarto website sidebars
-and tables of contents. Body references retain their tooltips and links.
-
-## Expected behavior
-
-The repository ships two runnable examples:
-
-- `example.qmd` renders the same source to HTML, LaTeX, and PDF. Body wiki
-  links become focusable tooltip references; the glossary placeholder becomes
-  an HTML definition list or LaTeX `glossaries` sections.
-- `website-example/` demonstrates the website contract. Wiki links in headings
-  become plain heading and table-of-contents text, keeping every TOC entry on
-  Quarto's normal alignment. The same links in body paragraphs remain
-  interactive tooltips.
-
-Run the website example with:
-
-```console
-quarto preview website-example
-```
-
-Place the generated glossary where it should be printed:
+Place the two generated lists where they should be printed:
 
 ```markdown
 ::: {.glossary}
 :::
 ```
 
-The placeholder creates an HTML heading and definition list. In LaTeX it emits
-`\printnoidxglossary`, with separate Acronyms and Glossary sections when both
-kinds exist. The no-index workflow compiles with ordinary Quarto PDF rendering;
-it does not require a separate `makeglossaries` command.
-
-The placeholder accepts optional attributes:
+Terms and acronyms are distinct vocabulary classes and render into separate
+Glossary and Acronyms sections. Empty sections are omitted. The placeholder
+accepts custom labels and HTML anchors:
 
 ```markdown
-::: {.glossary title="Terms" acronym-title="Abbreviations" level="2"}
+::: {#terms .glossary title="Terms" acronym-title="Abbreviations" acronym-id="abbreviations" level="2"}
 :::
 ```
 
-## Data
+In headings, wiki links resolve to plain text. They count as uses but do not
+create nested links, first-use side effects, or tooltip styling in website
+sidebars and tables of contents. Body references retain tooltips and links.
 
-YAML and JSON are supported. The portable schema is:
+## Reference forms
+
+The alias position can select a semantic form:
+
+| Markup | Meaning |
+|---|---|
+| `[[key]]` | Automatic singular form; acronyms expand on first use |
+| `[[key\|plural]]` | Automatic plural form; acronyms expand on first use |
+| `[[key\|short]]` | Acronym short form |
+| `[[key\|long]]` | Acronym long form |
+| `[[key\|full]]` | Acronym long and short forms |
+| `[[key\|short-plural]]` | Explicit short plural |
+| `[[key\|long-plural]]` | Explicit long plural |
+| `[[key\|full-plural]]` | Explicit full plural |
+| `[[key\|text]]` | Entry's configured text form |
+| `[[key\|first]]` | Entry's configured first-use form |
+| `[[key\|symbol]]` | Associated symbol |
+| `[[key\|cap:plural]]` | Capitalized version of any semantic form |
+| `[[key\|capitalized]]` | Capitalized automatic singular form |
+| `[[key\|custom text]]` | Literal custom display text |
+| `[[key\|=plural]]` | Literal text that would otherwise name a form |
+
+Semantic forms generate native `\gls`, `\glspl`, `\Gls`, or `\Glspl` calls
+where state matters. Explicit and custom forms remain indexed and linked but
+do not consume the acronym's first-use state.
+
+## Vocabulary data
+
+YAML and JSON are supported. Definitions and symbols accept Markdown,
+citations, emphasis, links, and mathematics:
 
 ```yaml
 entries:
-  - id: fleet-management
-    term: fleet management
-    definition: Coordinating fleet resources to meet service objectives.
+  - id: decision-epoch
+    term: decision epoch
+    text: decision epoch
+    plural: decision epochs
+    first: decision epoch
+    first-plural: decision epochs
+    symbol: $t$
+    definition: A **time point** at which state $S_t$ is observed [@source].
+    tooltip: A time point at which the system state is observed.
+    sort: decision epoch
+    see: fleet-management
+    see-also: adp
 
   - id: adp
     kind: acronym
     short: ADP
     long: approximate dynamic programming
-    definition: Methods that approximate downstream value in sequential decisions.
-
-  - id: former-term
-    term: former term
-    definition: Kept only so old references fail with a useful message.
-    status: retired
-    replacement: Use fleet management.
+    short-plural: ADP methods
+    long-plural: approximate dynamic programming methods
+    definition: Methods that approximate downstream value [@source].
+    tooltip: Methods that approximate downstream value.
 ```
 
-Term entries require `id`, `term`, and `definition`. Acronym entries require
-`id`, `kind: acronym`, `short`, and `long`; `definition` may provide a fuller
-glossary description. Optional `tooltip` and `sort` fields override the default
-tooltip and ordering.
+Terms require `id`, `term`, and `definition`. Acronyms require `id`,
+`kind: acronym`, `short`, and `long`; `definition` supplies the richer acronym
+list description. When omitted, regular plurals are formed by appending `s`,
+so academic documents should explicitly set irregular or stylistically
+preferred plurals. `see` and `see-also` accept a key or comma-separated/YAML
+list of keys and are validated during rendering.
 
-For migration, these field aliases are accepted:
+For migration, `key` or `label` aliases `id`; `name` aliases `term`;
+`description` aliases `definition`; `abbreviation` or `acronym` aliases
+`short`; and `expansion` aliases `long`. The recovered `groups[].rows` schema
+is also accepted.
 
-- `key` or `label` for `id`;
-- `name` for `term`;
-- `description` or `tooltip` for `definition`;
-- `abbreviation` or `acronym` for `short`;
-- `expansion` for `long`.
-
-The recovered MODRLSO shape is accepted directly: `groups[].rows` is flattened,
-and acronym rows with `term` as the short form and `definition` as the expansion
-are normalized automatically.
+If definitions contain citations, configure the document's normal
+`bibliography`. The filter uses Pandoc's citation processor for LaTeX header
+definitions and inserts native citation nodes into HTML glossary content.
 
 ## Options
 
 ```yaml
 glossary:
-  path: glossary.yml          # relative to the Quarto project or input file
-  strict: true                # fail on unknown [[keys]]
-  include-unused: false       # print only referenced entries
-  link: true                  # link HTML references to glossary anchors
+  path: glossary.yml
+  strict: true
+  include-unused: false
+  link: true
   title: Glossary
   acronym-title: Acronyms
   heading-level: 1
-  latex-load-package: true    # set false if the template loads glossaries
+
+  latex-load-package: true
+  latex-package: glossaries-extra  # glossaries-extra | glossaries
+  latex-backend: noidx             # noidx | makeindex | bib2gls
+  latex-location-lists: false
+  latex-sort: word                 # word | letter | case | def | use
+  latex-style: ""                  # e.g. altlist
+  acronym-style: long-short-desc
+  bib2gls-file: ""                 # optional generated database path
 ```
 
-Retired keys always fail because silently reviving retired vocabulary is rarely
-safe. With `strict: false`, unknown wiki links are left unchanged.
+`glossaries-extra` is the default because it supports per-category acronym
+styles and `see-also`. The extension explicitly selects `long-short-desc`, so
+acronyms use “long form (SHORT)” on first use rather than the package's
+short-only acronym default. Set `latex-package: glossaries` for the base
+package; `see-also` then intentionally fails because that key is an
+extra-package feature.
 
-Entry IDs must start with a letter or number and may contain letters, numbers,
-underscores, periods, colons, and hyphens. Custom display text may contain
-spaces and punctuation; keep formatting outside the wiki-link marker.
+`latex-location-lists: true` retains page/location references. Leave it false
+for compact journal-style lists. Because LaTeX cross-references such as “see
+also” live in the location list, enable location lists when those relations
+must appear in PDF.
 
-## Develop and verify
+## LaTeX backends
+
+| Backend | Best fit | Build |
+|---|---|---|
+| `noidx` | Articles and portable projects | Ordinary `quarto render ... --to pdf` |
+| `makeindex` | Conventional theses/books and publisher toolchains | LaTeX, `makeglossaries`, LaTeX twice |
+| `bib2gls` | Large or multilingual vocabularies and Unicode-aware sorting | LaTeX, `bib2gls`, LaTeX twice |
+
+`noidx` is the default and needs no external indexing command. Quarto performs
+the repeated LaTeX runs automatically.
+
+For `makeindex`, first produce LaTeX and then run the indexer:
+
+```console
+quarto render paper.qmd --to latex
+lualatex paper.tex
+makeglossaries paper
+lualatex paper.tex
+lualatex paper.tex
+```
+
+For `bib2gls`, the filter generates `_quarto-glossary-paper.bib` from the
+portable YAML/JSON vocabulary:
+
+```console
+quarto render paper.qmd --to latex
+lualatex paper.tex
+bib2gls paper
+lualatex paper.tex
+lualatex paper.tex
+```
+
+Install advanced tools through TeX Live when necessary:
+
+```console
+tlmgr install glossaries glossaries-extra bib2gls
+```
+
+`latex-sort: word` uses TeX word sorting with `noidx`; with `bib2gls` it uses
+the document/JVM locale. `letter`, `case`, `def`, and `use` map to bib2gls's
+`letter-nocase`, `letter-case`, `none`, and `use` methods respectively.
+
+## Examples and verification
+
+- `example.qmd` exercises terms, acronyms, first use, semantic reference
+  forms, plurals, a symbol, Markdown, mathematics, citations, related terms,
+  HTML tooltips, and separate output lists.
+- `website-example/` verifies that glossary markup in headings never changes
+  Quarto TOC alignment while body references remain interactive.
 
 ```console
 quarto render example.qmd --to html
@@ -169,16 +234,9 @@ quarto render website-example
 python -m unittest discover -s tests -v
 ```
 
-The example exercises ordinary terms, acronyms, custom display text, tooltips,
-glossary anchors, LaTeX definitions, `\gls`, `\glslink`, and both printed
-glossary types.
-
-## Publish
-
-Use this directory as the root of a dedicated public GitHub repository named
-`quarto-glossary`. The distribution layout already follows Quarto's required
-shape: README, LICENSE, example, and `_extensions/glossary/_extension.yml`.
-Before the first release, create a `v0.1.1` tag matching the extension manifest.
+The test suite builds actual PDFs with all three backends when their tools are
+available. The extension follows Quarto's distribution layout and can be
+installed directly from this repository root.
 
 ## License
 
