@@ -5,14 +5,14 @@
 `glossary` is a Quarto Lua filter for academic glossaries and acronym lists
 authored with Obsidian-style wiki links. One YAML or JSON vocabulary produces:
 
-- accessible, keyboard-focusable HTML tooltips;
+- accessible, keyboard-focusable HTML definition balloons or tooltips;
 - separate HTML Acronyms and Glossary lists;
 - first-use acronym expansion in HTML and LaTeX;
 - native LaTeX `glossaries` or `glossaries-extra` entries;
 - portable `noidx`, traditional `makeindex`, or Unicode-aware `bib2gls`
   workflows.
 
-Version 0.2.0 is the reusable form of the filter recovered from the MODRLSO
+Version 0.2.1 is the reusable form of the filter recovered from the MODRLSO
 study history. It has no Lua or JavaScript runtime dependencies. Advanced
 LaTeX indexing requires the corresponding TeX tools described below.
 
@@ -64,8 +64,8 @@ accepts custom labels and HTML anchors:
 ```
 
 In headings, wiki links resolve to plain text. They count as uses but do not
-create nested links, first-use side effects, or tooltip styling in website
-sidebars and tables of contents. Body references retain tooltips and links.
+create nested links, first-use side effects, or definition styling in website
+sidebars and tables of contents. Body references retain definitions and links.
 
 ## Reference forms
 
@@ -147,6 +147,7 @@ glossary:
   strict: true
   include-unused: false
   link: true
+  html-definition-display: balloon  # balloon | tooltip
   title: Glossary
   acronym-title: Acronyms
   heading-level: 1
@@ -160,6 +161,11 @@ glossary:
   acronym-style: long-short-desc
   bib2gls-file: ""                 # optional generated database path
 ```
+
+`html-definition-display: balloon` is the default. It shows the definition in
+a styled balloon on hover or keyboard focus and omits the HTML `title`
+attribute so Quarto cannot show a second tooltip. Select `tooltip` to use the
+title-based Quarto/browser surface instead; the CSS balloon is then disabled.
 
 `glossaries-extra` is the default because it supports per-category acronym
 styles and `see-also`. The extension explicitly selects `long-short-desc`, so
@@ -219,7 +225,7 @@ the document/JVM locale. `letter`, `case`, `def`, and `use` map to bib2gls's
 
 - `example.qmd` exercises terms, acronyms, first use, semantic reference
   forms, plurals, a symbol, Markdown, mathematics, citations, related terms,
-  HTML tooltips, and separate output lists.
+  HTML definition balloons, and separate output lists.
 - `website-example/` verifies that glossary markup in headings never changes
   Quarto TOC alignment while body references remain interactive.
 

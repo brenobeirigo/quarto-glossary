@@ -315,6 +315,8 @@ local function load_registry(meta)
     strict = meta_bool(config.strict, true),
     include_unused = meta_bool(config["include-unused"], false),
     link = meta_bool(config.link, true),
+    html_definition_display = meta_text(
+      config["html-definition-display"], "balloon"):lower(),
     load_latex_package = meta_bool(config["latex-load-package"], true),
     title = meta_text(config.title, "Glossary"),
     acronym_title = meta_text(config["acronym-title"], "Acronyms"),
@@ -340,6 +342,10 @@ local function load_registry(meta)
       settings.latex_backend ~= "makeindex" and
       settings.latex_backend ~= "bib2gls" then
     fail("latex-backend must be noidx, makeindex, or bib2gls")
+  end
+  if settings.html_definition_display ~= "balloon" and
+      settings.html_definition_display ~= "tooltip" then
+    fail("html-definition-display must be balloon or tooltip")
   end
   if settings.latex_sort ~= "word" and settings.latex_sort ~= "letter" and
       settings.latex_sort ~= "case" and settings.latex_sort ~= "def" and
@@ -586,19 +592,30 @@ local function html_reference(entry, display)
   used[entry.id] = true
   local spec = parse_reference_spec(display)
   local content = reference_content(entry, spec, false)
-  local tooltip = pandoc.utils.stringify(markdown_inlines(entry.tooltip))
+  local definition = pandoc.utils.stringify(markdown_inlines(entry.tooltip))
   local attributes = {
     {"tabindex", "0"},
     {"data-glossary-id", entry.id},
-    {"data-glossary-definition", tooltip},
-    {"aria-label", pandoc.utils.stringify(content) .. ": " .. tooltip},
+    {"aria-label", pandoc.utils.stringify(content) .. ": " .. definition},
   }
+  local classes = {"glossary-term"}
+  local link_title = ""
+  if settings.html_definition_display == "balloon" then
+    classes[#classes + 1] = "glossary-balloon"
+    attributes[#attributes + 1] = {"data-glossary-definition", definition}
+  else
+    link_title = definition
+    if not settings.link then
+      attributes[#attributes + 1] = {"title", definition}
+    end
+  end
   if settings.link then
-    return pandoc.Link(content, "#glossary-" .. entry.id, tooltip,
-      pandoc.Attr("", {"glossary-link", "glossary-term"}, attributes))
+    table.insert(classes, 1, "glossary-link")
+    return pandoc.Link(content, "#glossary-" .. entry.id, link_title,
+      pandoc.Attr("", classes, attributes))
   end
   return pandoc.Span(content,
-    pandoc.Attr("", {"glossary-term"}, attributes))
+    pandoc.Attr("", classes, attributes))
 end
 
 local function other_reference(entry, display)
@@ -1084,7 +1101,7 @@ local function configure_output()
   if quarto.doc.is_format("html") or FORMAT:match("html") then
     quarto.doc.add_html_dependency({
       name = "quarto-glossary",
-      version = "0.2.0",
+      version = "0.2.1",
       stylesheets = {"glossary.css"},
     })
   elseif quarto.doc.is_format("latex") or FORMAT:match("latex") then

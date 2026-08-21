@@ -86,7 +86,14 @@ class GlossaryRenderTests(unittest.TestCase):
         html_result = self.render(project, "html")
         self.assert_success(html_result)
         html = (project / "test.html").read_text(encoding="utf-8")
-        self.assertIn('class="glossary-link glossary-term"', html)
+        self.assertIn('class="glossary-link glossary-term glossary-balloon"', html)
+        balloon = re.search(
+            r'<a[^>]*class="glossary-link glossary-term glossary-balloon"[^>]*>',
+            html,
+        )
+        self.assertIsNotNone(balloon)
+        self.assertIn("data-glossary-definition=", balloon.group(0))
+        self.assertNotIn(" title=", balloon.group(0))
         self.assertIn("approximate dynamic programming (ADP)", html)
         self.assertRegex(html, r">ADP</a>\.")
         self.assertIn("ADP methods", html)
@@ -122,6 +129,33 @@ class GlossaryRenderTests(unittest.TestCase):
         self.assertIn(r"\glsadd{adp}\glslink{adp}{ADP methods}", latex)
         self.assertIn(r"\printnoidxglossary[type=\acronymtype", latex)
         self.assertIn(r"\printnoidxglossary[title={Glossary}", latex)
+
+    def test_html_definition_display_is_exclusive_and_configurable(self) -> None:
+        project = self.make_project(
+            "[[decision-epoch]].\n",
+            glossary_options="html-definition-display: tooltip",
+        )
+        result = self.render(project, "html")
+        self.assert_success(result)
+        html = (project / "test.html").read_text(encoding="utf-8")
+        tooltip = re.search(
+            r'<a[^>]*class="glossary-link glossary-term"[^>]*>', html
+        )
+        self.assertIsNotNone(tooltip)
+        self.assertIn(" title=", tooltip.group(0))
+        self.assertNotIn("glossary-balloon", tooltip.group(0))
+        self.assertNotIn("data-glossary-definition=", tooltip.group(0))
+
+        invalid = self.make_project(
+            "[[decision-epoch]].\n",
+            glossary_options="html-definition-display: both",
+        )
+        invalid_result = self.render(invalid, "html")
+        self.assertNotEqual(invalid_result.returncode, 0)
+        self.assertIn(
+            "html-definition-display must be balloon or tooltip",
+            invalid_result.stdout + invalid_result.stderr,
+        )
 
     def test_unknown_key_fails_in_strict_mode(self) -> None:
         project = self.make_project("An [[unknown-key]].\n")
@@ -306,7 +340,7 @@ class GlossaryRenderTests(unittest.TestCase):
         )
         self.assertIsNotNone(heading)
         self.assertNotIn("glossary-term", heading.group(0))
-        self.assertIn('class="glossary-link glossary-term"', html)
+        self.assertIn('class="glossary-link glossary-term glossary-balloon"', html)
         self.assertIn("approximate dynamic programming (ADP)", html)
 
 

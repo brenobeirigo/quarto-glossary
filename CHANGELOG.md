@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- Prevent duplicate HTML definitions by emitting either the CSS balloon or the
+  title-based tooltip, never both.
+- Add `html-definition-display` with `balloon` as the default and `tooltip` as
+  an opt-in alternative.
+
 ## 0.2.0
 
 - Distinguish acronym and glossary entries in both HTML and LaTeX output.
