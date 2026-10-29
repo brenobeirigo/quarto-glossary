@@ -6,7 +6,9 @@ Glossaries and acronym lists for Quarto, the way LaTeX's `glossaries` package
 does them. Write `[[key]]` in your text. Web readers get a definition balloon
 on hover, keyboard focus, or tap. The PDF gets native `\gls{key}` entries.
 The first use of an acronym expands it, later uses abbreviate it, and the
-lists at the end contain exactly the entries you cited.
+lists at the end contain exactly the entries you cited. The `[[ ]]` syntax
+comes from [Obsidian's wikilinks](https://obsidian.md/help/links), including
+`[[key|other text]]` for display text.
 
 **[Manual, live demo, and comparison with other tools](https://brenobeirigo.github.io/quarto-glossary/)**
 
