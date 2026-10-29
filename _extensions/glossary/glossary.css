@@ -3,35 +3,48 @@
 .glossary-link:hover,
 .glossary-link:focus {
   color: inherit;
-  text-decoration: none;
 }
 
+/* A soft dotted underline marks a defined term without competing with links.
+   It takes the link colour on hover, since a linked term leads to its entry. */
 .glossary-term {
-  border-bottom: 1px dotted currentColor;
   cursor: help;
-  position: relative;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.glossary-term:hover,
+.glossary-term[aria-describedby] {
+  text-decoration-color: var(--bs-link-color, #0d6efd);
 }
 
 .glossary-term:focus {
+  outline: none;
+}
+
+.glossary-term:focus-visible {
   border-radius: 0.1rem;
   outline: 2px solid var(--bs-link-color, #0d6efd);
   outline-offset: 2px;
 }
 
 .glossary-balloon-popup {
-  background: var(--bs-body-bg, #fff);
-  border: 1px solid var(--bs-border-color, #888);
-  border-radius: 0.3rem;
+  --glossary-balloon-bg: var(--bs-body-bg, #fff);
+  --glossary-balloon-border: var(--bs-border-color, #888);
+  background: var(--glossary-balloon-bg);
+  border: 1px solid var(--glossary-balloon-border);
+  border-radius: 0.4rem;
   box-sizing: border-box;
-  box-shadow: 0 0.25rem 0.7rem rgb(0 0 0 / 20%);
+  box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 18%);
   color: var(--bs-body-color, #212529);
   font-size: 0.85rem;
   font-weight: normal;
-  line-height: 1.35;
+  line-height: 1.4;
   max-width: min(32rem, calc(100vw - 1rem));
   min-width: min(16rem, calc(100vw - 1rem));
-  padding: 0.55rem 0.7rem;
-  pointer-events: none;
+  padding: 0.55rem 0.75rem;
   position: fixed;
   text-align: left;
   white-space: normal;
@@ -39,11 +52,56 @@
   z-index: 2147483647;
 }
 
-.glossary-list {
+/* The arrow points at the term even when the balloon is pushed off-centre. */
+.glossary-balloon-popup::after {
+  background: var(--glossary-balloon-bg);
+  border: 1px solid var(--glossary-balloon-border);
+  border-left: 0;
+  border-top: 0;
+  content: "";
+  height: 0.6rem;
+  left: var(--glossary-arrow-x, 50%);
+  position: absolute;
+  top: 100%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  width: 0.6rem;
+}
+
+.glossary-balloon-popup[data-placement="below"]::after {
+  bottom: 100%;
+  top: auto;
+  transform: translate(-50%, 50%) rotate(225deg);
+}
+
+/* Dark themes: lift the balloon off the page with a lighter mix of the
+   theme's own page and text colours, since a shadow barely shows there. */
+.quarto-dark .glossary-balloon-popup {
+  --glossary-balloon-bg: color-mix(in srgb, var(--bs-body-bg, #222) 88%,
+    var(--bs-body-color, #fff));
+  --glossary-balloon-border: color-mix(in srgb, var(--bs-body-bg, #222) 70%,
+    var(--bs-body-color, #fff));
+  box-shadow: 0 0.5rem 1.25rem rgb(0 0 0 / 55%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .glossary-balloon-popup {
+    animation: glossary-balloon-in 120ms ease-out;
+  }
+
+  @keyframes glossary-balloon-in {
+    from {
+      opacity: 0;
+      translate: 0 0.2rem;
+    }
+  }
+}
+
+.glossary-list > dl {
   display: grid;
   grid-template-columns: minmax(8rem, max-content) minmax(12rem, 1fr);
   column-gap: 1.25rem;
   row-gap: 0.8rem;
+  margin: 0 0 1rem;
 }
 
 .glossary-list dt,
@@ -55,16 +113,36 @@
   font-weight: 700;
 }
 
+.glossary-list dd > :last-child {
+  margin-bottom: 0;
+}
+
+.glossary-list .glossary-related {
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.875em;
+  margin: 0.25rem 0 0;
+}
+
 .glossary-entry {
   scroll-margin-top: 4rem;
 }
 
 @media (max-width: 36rem) {
-  .glossary-list {
+  .glossary-list > dl {
     display: block;
   }
 
   .glossary-list dd {
-    margin: 0 0 0.8rem;
+    margin: 0.15rem 0 0.8rem;
+  }
+}
+
+@media print {
+  .glossary-term {
+    text-decoration: none;
+  }
+
+  .glossary-balloon-popup {
+    display: none !important;
   }
 }

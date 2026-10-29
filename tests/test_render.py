@@ -642,6 +642,109 @@ class GlossaryRenderTests(unittest.TestCase):
             conflict.stdout + conflict.stderr,
         )
 
+    def test_included_fragment_keeps_the_page_settings(self) -> None:
+        project = self.make_project(
+            "[[adp]] and [[pass]].\n\n{{< include part.qmd >}}\n\n"
+            "::: {.glossary}\n:::\n",
+            bibliography=False,
+        )
+        (project / "part.qmd").write_text(
+            "---\nglossary:\n  entries:\n"
+            "    - {id: pass, term: pass, definition: One run of the loop.}\n"
+            "---\n\nCount each [[pass]].\n",
+            encoding="utf-8",
+        )
+        self.assert_success(self.render(project, "html"))
+        html = (project / "test.html").read_text(encoding="utf-8")
+        self.assertIn('id="glossary-adp"', html)
+        self.assertIn('id="glossary-pass"', html)
+
+    def test_text_problems_are_reported_together_with_suggestions(self) -> None:
+        project = self.make_project(
+            "[[ADP]], [[decison-epoch]], [[adp|cap:plurl]], and [[zzz]].\n"
+        )
+        result = self.render(project, "html")
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("glossary: 4 problems:", output)
+        self.assertIn("unknown glossary key [[ADP]] in test.qmd; did you mean [[adp]]?", output)
+        self.assertIn("did you mean [[decision-epoch]]?", output)
+        self.assertIn("unknown reference form 'cap:plurl' in test.qmd; "
+                      "did you mean 'cap:plural'?", output)
+        self.assertIn("unknown glossary key [[zzz]] in test.qmd\n", output)
+
+        project = self.make_project(
+            "[[adp|plurals]] and [[adp|=plurals]].\n", glossary_options="strict: false"
+        )
+        result = self.render(project, "html")
+        self.assert_success(result)
+        output = result.stdout + result.stderr
+        self.assertEqual(output.count("did you mean the form 'plural'?"), 1)
+
+        project = self.make_project("[[nothing-here]].\n", glossary_options="strict: false")
+        result = self.render(project, "html")
+        self.assert_success(result)
+        self.assertIn("glossary warning: unknown glossary key [[nothing-here]]",
+                      result.stdout + result.stderr)
+
+    def test_vocabulary_mistakes_name_file_and_field(self) -> None:
+        project = self.make_project(
+            "[[child]].\n",
+            glossary_text=(
+                "entries:\n"
+                "  - {id: child, term: child, plurl: children, "
+                "definition: A young person.}\n"
+                "  - {id: category, term: category, definition: A class.}\n"
+                "  - {id: analysis, term: analysis, definition: A study.}\n"
+                "  - {id: box, term: box, definition: A container.}\n"
+            ),
+            bibliography=False,
+        )
+        source = (project / "test.qmd").read_text(encoding="utf-8")
+        (project / "test.qmd").write_text(
+            source.replace("[[child]].", "[[category|plural]], [[analysis|plural]], "
+                           "[[box|plural]], [[child]]."),
+            encoding="utf-8",
+        )
+        result = self.render(project, "html")
+        self.assert_success(result)
+        self.assertIn("entry 'child' in glossary.yml has unknown field 'plurl'; "
+                      "did you mean 'plural'?", result.stdout + result.stderr)
+        html = (project / "test.html").read_text(encoding="utf-8")
+        for plural in ("categories", "analyses", "boxes"):
+            self.assertIn(f">{plural}<", html)
+
+        (project / "glossary.yml").write_text(
+            "entries:\n  - {id: x, term: x, defintion: Typo.}\n", encoding="utf-8"
+        )
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        output = result.stdout + result.stderr
+        self.assertIn("entry 'x' in glossary.yml has no definition", output)
+        self.assertIn("did you mean 'definition'?", output)
+
+        (project / "glossary.yml").write_text("entries:\n  - id: [x\n", encoding="utf-8")
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("glossary: cannot parse glossary.yml:", result.stdout + result.stderr)
+
+    def test_top_level_entries_get_an_indentation_hint(self) -> None:
+        project = self.make_project("[[x]].\n", glossary_name=None, bibliography=False)
+        (project / "test.qmd").write_text(
+            "---\ntitle: Test\nfilters: [glossary]\nentries:\n"
+            "  - {id: x, term: x, definition: An x.}\n---\n\n[[x]].\n",
+            encoding="utf-8",
+        )
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Indent it under glossary:", result.stdout + result.stderr)
+
+    def test_heading_only_use_reaches_the_pdf_list(self) -> None:
+        project = self.make_project("# About [[adp]]\n\nText.\n\n::: {.glossary}\n:::\n")
+        self.assert_success(self.render(project, "latex"))
+        latex = (project / "test.tex").read_text(encoding="utf-8")
+        self.assertIn(r"\glsadd{adp}", latex)
+
     def test_missing_vocabulary_file_explains_both_sources(self) -> None:
         project = self.make_project("[[adp]].\n", glossary_name=None)
         result = self.render(project, "html")

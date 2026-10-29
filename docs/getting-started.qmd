@@ -82,6 +82,18 @@ glossary:
 [Ways to define terms](define-terms.qmd) covers several files, JSON, and
 websites with a shared glossary page.
 
+## When something looks wrong
+
+| You see | Cause and fix |
+|---|---|
+| Literal `[[key]]` in the page | The filter is not active. Add `filters: [glossary]` to the document or to `_quarto.yml`. |
+| `cannot find vocabulary file 'glossary.yml'` | There is no `path` and no `entries`. Add one of them under `glossary:`. |
+| `found entries: at the top level` | `entries:` must be indented under `glossary:`. |
+| `unknown glossary key [[apii]] …; did you mean [[api]]?` | A misspelt key. Every unknown key in the document is listed in one message. |
+| A wrong plural such as "childs" | Plurals of regular words are formed automatically. Give irregular ones a `plural:` field, or write `[[child|children]]` once. |
+| No Glossary or Acronyms list | The document has no `::: {.glossary}` placeholder. Without one, terms keep their balloons but are not links. |
+| `glossary warning: … unknown field 'plurl'` | A misspelt field in an entry. The warning suggests the right name. |
+
 ## Update
 
 Run the installation command again from the project root:

@@ -11,11 +11,12 @@
 -- Entries come from one or more YAML/JSON files (glossary.path), from the
 -- document or project metadata (glossary.entries), or from both.
 
-local VERSION = "0.5.0"
+local VERSION = "0.6.0"
 
 local registry = nil
 local settings = nil
 local used = {}
+local referenced_in_body = {}
 local seen = {}
 local document_meta = nil
 local glossary_citation_ids = {}
@@ -27,8 +28,86 @@ local function fail(message)
   os.exit(1)
 end
 
+local function warn(message)
+  io.stderr:write("glossary warning: " .. tostring(message) .. "\n")
+end
+
+-- Problems in the text are collected, so one render reports all of them.
+local problems = {}
+
 local function trim(value)
   return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function edit_distance(left, right)
+  if math.abs(#left - #right) > 3 then
+    return 4
+  end
+  local previous = {}
+  for j = 0, #right do
+    previous[j] = j
+  end
+  for i = 1, #left do
+    local current = {[0] = i}
+    for j = 1, #right do
+      local cost = left:sub(i, i) == right:sub(j, j) and 0 or 1
+      current[j] = math.min(previous[j] + 1, current[j - 1] + 1,
+        previous[j - 1] + cost)
+    end
+    previous = current
+  end
+  return previous[#right]
+end
+
+local function input_label()
+  local input = quarto.doc.input_file
+  if not input then
+    return "the input document"
+  end
+  local base = (quarto.project and quarto.project.directory) or
+    pandoc.system.get_working_directory()
+  if base and pandoc.path.is_absolute(input) then
+    local relative = pandoc.path.make_relative(input, base)
+    if not relative:match("^%.%.") then
+      return (relative:gsub("\\", "/"))
+    end
+  end
+  return input
+end
+
+local function report(message)
+  if settings.strict then
+    problems[#problems + 1] = message
+  else
+    warn(message)
+  end
+end
+
+-- The closest name among candidates (a list or a set's keys), or nil.
+local function nearest(name, candidates)
+  local best, best_distance = nil, 3
+  local lowered = name:lower()
+  local function consider(candidate)
+    local distance = candidate:lower() == lowered and 0 or
+      edit_distance(lowered, candidate:lower())
+    if distance < best_distance or
+        (distance == best_distance and best and candidate < best) then
+      best, best_distance = candidate, distance
+    end
+  end
+  if candidates[1] ~= nil then
+    for _, candidate in ipairs(candidates) do
+      consider(candidate)
+    end
+  else
+    for candidate in pairs(candidates) do
+      consider(candidate)
+    end
+  end
+  if best and best_distance <= math.max(1, math.floor(#name / 4)) then
+    return best
+  end
+  return nil
 end
 
 local function meta_text(value, fallback)
@@ -102,6 +181,18 @@ local function read_file(path)
   return raw
 end
 
+local function display_path(path)
+  local base = (quarto.project and quarto.project.directory) or
+    pandoc.system.get_working_directory()
+  if base and pandoc.path.is_absolute(path) then
+    local relative = pandoc.path.make_relative(path, base)
+    if not relative:match("^%.%.") then
+      return (relative:gsub("\\", "/"))
+    end
+  end
+  return (path:gsub("\\", "/"))
+end
+
 local function decode_source(path)
   local raw = read_file(path)
   if path:lower():match("%.json$") then
@@ -116,7 +207,15 @@ local function decode_source(path)
   -- Pandoc reads YAML metadata reliably when it is wrapped as a metadata
   -- block. This keeps the extension dependency-free.
   local wrapped = "---\n" .. raw .. "\n---\n"
-  local parsed = pandoc.read(wrapped, "markdown")
+  local ok, parsed = pcall(pandoc.read, wrapped, "markdown")
+  if not ok then
+    -- Line numbers count the `---` line added above.
+    local reason = (tostring(parsed):match("[^\n]+") or tostring(parsed))
+      :gsub("line (%d+)", function(line)
+        return "line " .. math.max(1, tonumber(line) - 1)
+      end)
+    fail("cannot parse " .. display_path(path) .. ": " .. reason)
+  end
   return parsed.meta
 end
 
@@ -218,21 +317,56 @@ local function row_list(row, names)
   return pandoc.List({})
 end
 
+-- Regular English plurals of the last word. Irregular words (child, mouse,
+-- criterion) still need an explicit `plural`.
+local function english_plural(text)
+  local lowered = text:lower()
+  if lowered:match("[^aeiou]y$") then
+    return text:sub(1, -2) .. "ies"
+  end
+  if lowered:match("[^aeiou]is$") and #lowered > 4 then
+    return text:sub(1, -3) .. "es"
+  end
+  if lowered:match("[sxz]$") or lowered:match("[cs]h$") then
+    return text .. "es"
+  end
+  return text .. "s"
+end
+
+local entry_fields = {}
+for _, name in ipairs({
+    "id", "key", "label", "kind", "type", "term", "name", "short",
+    "abbreviation", "acronym", "long", "expansion", "text", "plural", "first",
+    "first-plural", "firstplural", "short-plural", "shortplural",
+    "long-plural", "longplural", "symbol", "description", "definition",
+    "tooltip", "sort", "see", "see-also", "seealso"}) do
+  entry_fields[name] = true
+end
+
 local function normalize_entry(row, source_path)
   local entry = {}
   entry.id = row_value(row, {"id", "key", "label"}, "")
   if entry.id == "" then
     fail("entry in " .. source_path .. " has no id")
   end
+  local where = "entry '" .. entry.id .. "' in " .. source_path
   if not entry.id:match("^[%w][%w_.:%-]*$") then
-    fail("id '" .. entry.id ..
-      "' must start with a letter or number and contain only letters, " ..
-      "numbers, underscore, period, colon, or hyphen")
+    fail(where .. ": id must start with a letter or number and contain " ..
+      "only letters, numbers, underscore, period, colon, or hyphen")
+  end
+  if type(row) == "table" then
+    for field in pairs(row) do
+      if type(field) == "string" and not entry_fields[field] then
+        local suggestion = nearest(field, entry_fields)
+        warn(where .. " has unknown field '" .. field .. "'" ..
+          (suggestion and ("; did you mean '" .. suggestion .. "'?") or ""))
+      end
+    end
   end
 
   entry.kind = row_value(row, {"kind", "type"}, "term"):lower()
   if entry.kind ~= "term" and entry.kind ~= "acronym" then
-    fail("entry '" .. entry.id .. "' has unsupported kind '" .. entry.kind ..
+    fail(where .. " has unsupported kind '" .. entry.kind ..
       "' (expected term or acronym)")
   end
   entry.term = row_value(row, {"term", "name"}, "")
@@ -293,7 +427,7 @@ local function normalize_entry(row, source_path)
     end
   else
     if entry.term == "" then
-      fail("entry '" .. entry.id .. "' has no term or name")
+      fail(where .. " has no term")
     end
     if entry.tooltip == "" then
       entry.tooltip = entry.definition
@@ -302,7 +436,7 @@ local function normalize_entry(row, source_path)
       entry.text = entry.term
     end
     if entry.plural == "" then
-      entry.plural = entry.text .. "s"
+      entry.plural = english_plural(entry.text)
     end
     if entry.first == "" then
       entry.first = entry.text
@@ -312,8 +446,12 @@ local function normalize_entry(row, source_path)
     end
   end
 
+  if entry.kind == "acronym" and (entry.short == "" or entry.long == "") then
+    fail(where .. " is an acronym without " ..
+      (entry.short == "" and "short" or "long"))
+  end
   if entry.definition == "" then
-    fail("entry '" .. entry.id .. "' has no definition")
+    fail(where .. " has no definition")
   end
   if entry.sort == "" then
     entry.sort = entry.short ~= "" and entry.short or entry.term
@@ -427,16 +565,6 @@ local function strip_included_metadata(blocks)
   return changed and result or nil
 end
 
-local function display_path(path)
-  if quarto.project and quarto.project.directory then
-    local relative = pandoc.path.make_relative(path, quarto.project.directory)
-    if not relative:match("^%.%.") then
-      return (relative:gsub("\\", "/"))
-    end
-  end
-  return (path:gsub("\\", "/"))
-end
-
 -- Entry lists in the front matter of included files, nested includes first
 -- found first. Commented-out includes are ignored.
 local function included_entry_sources()
@@ -454,6 +582,9 @@ local function included_entry_sources()
     local raw = read_file(path)
     if included then
       local meta, yaml = front_matter(raw)
+      if meta.glossary then
+        sources.replace_settings = true
+      end
       if meta.glossary and meta.glossary.entries then
         sources:insert({rows = meta.glossary.entries, path = display_path(path)})
         remember_metadata_pattern(yaml)
@@ -512,10 +643,43 @@ local function entry_difference(left, right)
   return nil
 end
 
+-- The glossary block that governs the page when an included fragment has its
+-- own: Quarto lets the fragment's block replace the page's. The page's front
+-- matter wins, then the folder's _metadata.yml, then _quarto.yml.
+local function own_glossary_config()
+  local input = tostring(quarto.doc.input_file or "")
+  local meta = front_matter(read_file(input))
+  if meta.glossary then
+    return meta.glossary
+  end
+  local folders = {pandoc.path.directory(input)}
+  if quarto.project and quarto.project.directory then
+    folders[#folders + 1] = quarto.project.directory
+  end
+  for index, folder in ipairs(folders) do
+    local name = index == 1 and "_metadata.yml" or "_quarto.yml"
+    local file = pandoc.path.join({folder, name})
+    if path_exists(file) then
+      local config = decode_source(file).glossary
+      if config then
+        return config
+      end
+    end
+  end
+  return {}
+end
+
 local function load_registry(meta)
-  local config = meta.glossary or {}
-  local rows = inline_rows(config)
   local included = included_entry_sources()
+  if meta.glossary == nil and meta.entries ~= nil then
+    fail("found entries: at the top level of the metadata. Indent it " ..
+      "under glossary:, as glossary: then   entries:")
+  end
+  local config = meta.glossary or {}
+  if included.replace_settings then
+    config = own_glossary_config()
+  end
+  local rows = inline_rows(config)
   local paths = vocabulary_paths(config.path)
   if paths == nil then
     paths = (#rows > 0 or #included > 0) and pandoc.List({}) or
@@ -700,6 +864,11 @@ local reference_forms = {
   symbol = true,
 }
 
+local form_names = {capitalized = true}
+for name in pairs(reference_forms) do
+  form_names[name] = true
+end
+
 local function parse_reference_spec(display)
   if display == "" then
     return {form = "auto", capitalized = false}
@@ -716,6 +885,22 @@ local function parse_reference_spec(display)
   end
   if reference_forms[display] then
     return {form = display, capitalized = false}
+  end
+  if capitalized_form then
+    local suggestion = nearest(capitalized_form, reference_forms)
+    report("unknown reference form '" .. display .. "' in " .. input_label() ..
+      (suggestion and ("; did you mean 'cap:" .. suggestion .. "'?") or ""))
+    return {custom = display}
+  end
+  -- A single word close to a form name is probably a misspelt form, but it
+  -- may be wanted text ("test" is one letter from "text"), so only warn.
+  if display:match("^[%l%-]+$") then
+    local suggestion = nearest(display, form_names)
+    if suggestion then
+      warn("[[...|" .. display .. "]] in " .. input_label() ..
+        " is shown as literal text; did you mean the form '" .. suggestion ..
+        "'? Write '=" .. display .. "' to keep the text and silence this")
+    end
   end
   return {custom = display}
 end
@@ -807,30 +992,18 @@ end
 
 -- Error messages name the document relative to the project or working
 -- directory, which is shorter and keeps local paths out of CI logs.
-local function input_label()
-  local input = quarto.doc.input_file
-  if not input then
-    return "the input document"
-  end
-  local base = (quarto.project and quarto.project.directory) or
-    pandoc.system.get_working_directory()
-  if base and pandoc.path.is_absolute(input) then
-    local relative = pandoc.path.make_relative(input, base)
-    if not relative:match("^%.%.") then
-      return (relative:gsub("\\", "/"))
-    end
-  end
-  return input
-end
-
 local function lookup_entry(id)
   local entry = registry.current[id]
   if entry then
     return entry
   end
-  if settings.strict then
-    fail("unknown glossary key [[" .. id .. "]] in " .. input_label())
+  local ids = {}
+  for _, known in ipairs(registry.ordered) do
+    ids[#ids + 1] = known.id
   end
+  local suggestion = nearest(id, ids)
+  report("unknown glossary key [[" .. id .. "]] in " .. input_label() ..
+    (suggestion and ("; did you mean [[" .. suggestion .. "]]?") or ""))
   return nil
 end
 
@@ -856,6 +1029,7 @@ end
 
 local function latex_reference(entry, display)
   used[entry.id] = true
+  referenced_in_body[entry.id] = true
   local spec = parse_reference_spec(display)
   if spec.custom == nil and spec.form == "auto" then
     local command = spec.capitalized and "\\Gls{" or "\\gls{"
@@ -907,10 +1081,11 @@ local function html_reference(entry, display)
   local spec = parse_reference_spec(display)
   local content = reference_content(entry, spec, false)
   local definition = plain_definition(entry.tooltip)
+  -- The term keeps its own accessible name. The balloon script links the
+  -- definition with aria-describedby while it is shown.
   local attributes = {
     {"tabindex", "0"},
     {"data-glossary-id", entry.id},
-    {"aria-label", pandoc.utils.stringify(content) .. ": " .. definition},
   }
   local classes = {"glossary-term"}
   local link_title = ""
@@ -928,6 +1103,9 @@ local function html_reference(entry, display)
     table.insert(classes, 1, "glossary-link")
     return pandoc.Link(content, html_glossary_target(entry), link_title,
       pandoc.Attr("", classes, attributes))
+  end
+  if settings.html_definition_display == "balloon" then
+    attributes[#attributes + 1] = {"role", "button"}
   end
   return pandoc.Span(content,
     pandoc.Attr("", classes, attributes))
@@ -1153,12 +1331,16 @@ local function html_entry_list(entries, extra_class)
     local term = pandoc.Span(label_inlines,
       pandoc.Attr("glossary-" .. entry.id, {"glossary-entry"}))
     local description = markdown_blocks(entry.definition)
+    local related_line = pandoc.Inlines({})
     local function append_related(title, related)
       if #related == 0 then
         return
       end
       local inlines = pandoc.Inlines({pandoc.Emph({pandoc.Str(title .. ":")}),
         pandoc.Space()})
+      if #related_line > 0 then
+        related_line:extend({pandoc.Space(), pandoc.Str("·"), pandoc.Space()})
+      end
       for index, related_id in ipairs(related) do
         local related_entry = registry.current[related_id]
         if index > 1 then
@@ -1168,10 +1350,14 @@ local function html_entry_list(entries, extra_class)
         inlines:insert(pandoc.Link(markdown_inlines(default_display(related_entry)),
           "#glossary-" .. related_id))
       end
-      description:insert(pandoc.Para(inlines))
+      related_line:extend(inlines)
     end
     append_related("See", entry.see)
     append_related("See also", entry.see_also)
+    if #related_line > 0 then
+      description:insert(pandoc.Div({pandoc.Plain(related_line)},
+        pandoc.Attr("", {"glossary-related"})))
+    end
     -- One definition holding every block, so the list grid keeps one <dd>
     -- per <dt> even with several paragraphs or a See line.
     items:insert({{term}, {description}})
@@ -1212,10 +1398,17 @@ local function latex_glossary(div)
     commands:insert("\\glsaddall")
   elseif settings.latex_backend ~= "bib2gls" then
     -- bib2gls selects these itself ("recorded and deps").
+    -- This includes entries used only in headings, which stay plain text.
     local printed = printed_ids(false)
     for _, entry in ipairs(registry.ordered) do
-      if printed[entry.id] and not used[entry.id] then
+      if printed[entry.id] and not referenced_in_body[entry.id] then
         commands:insert("\\glsadd{" .. entry.id .. "}")
+      end
+    end
+  else
+    for id in pairs(used) do
+      if not referenced_in_body[id] then
+        commands:insert("\\glsadd{" .. id .. "}")
       end
     end
   end
@@ -1511,6 +1704,8 @@ end
 
 function Pandoc(doc)
   used = {}
+  referenced_in_body = {}
+  problems = {}
   seen = {}
   document_meta = doc.meta
   glossary_citation_ids = {}
@@ -1534,6 +1729,10 @@ function Pandoc(doc)
   -- as uses. The next walk expands references in ordinary body content.
   doc = doc:walk({Header = expand_heading})
   doc = doc:walk({Inlines = expand_inlines})
+  if #problems > 0 then
+    fail(#problems == 1 and problems[1] or
+      (#problems .. " problems:\n  " .. table.concat(problems, "\n  ")))
+  end
 
   -- References have now been recorded, so a glossary placeholder can appear
   -- before or after the prose that uses its entries.

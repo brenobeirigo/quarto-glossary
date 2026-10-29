@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.6.0
+
+- Read `glossary.entries` from the front matter of `{{< include >}}`d
+  fragments, including nested and repeated includes, and remove front matter
+  that an include leaves in the body. A fragment's `glossary:` block no
+  longer replaces the page's options. Merged from the patched copy used by a
+  course project.
+- Accept a key defined identically in several places. Two different meanings
+  stop the render, name both sources, and say which field differs.
+- Report every unknown key in a document in one message, each with the
+  nearest defined key. Non-strict mode warns instead of staying silent.
+- Reject unknown `cap:` forms, and warn when a one-word display text is close
+  to a form name, such as `[[key|plurals]]`.
+- Warn about misspelt entry fields, name the file in every entry error,
+  explain top-level `entries:`, and report YAML errors in one line.
+- Form regular English plurals (categories, boxes, analyses).
+- Add entries used only in headings to the PDF lists.
+- Balloons: the first tap on a touch screen shows the definition, readers can
+  move onto a balloon to select its text, an arrow points at the term, dark
+  themes get a raised background, and screen readers hear the definition as a
+  description rather than as the term's name. Terms without a link open
+  with Enter or Space.
+- Lists: the two-column grid now applies, See and See also share one smaller
+  line, and printed pages drop the term underline.
+- Add a troubleshooting table to the manual and update the agent
+  instructions.
+
 ## 0.5.0
 
 - Define entries in the document or project metadata with `glossary.entries`.

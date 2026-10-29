@@ -17,8 +17,11 @@ end contain exactly the entries you cited.
 - Accessible HTML balloons that callouts, tables, and captions cannot clip.
 - Separate Acronyms and Glossary lists in HTML and LaTeX.
 - `glossaries-extra` or `glossaries`, with `noidx`, `makeindex`, or `bib2gls`.
-- Strict mode: an unknown key stops the render, which keeps human and
-  AI-agent drafts on a fixed vocabulary.
+- Strict mode: unknown keys stop the render, all listed in one message with
+  the nearest defined key, which keeps human and AI-agent drafts on a fixed
+  vocabulary.
+- Balloons that work with a mouse, a keyboard, a screen reader, and a
+  finger: the first tap on a phone shows the definition.
 - No R, Python, or JavaScript dependencies. Requires Quarto 1.4 or newer.
 
 ## Install
@@ -65,10 +68,13 @@ glossary:
   path: glossary.yml          # or a list: [terms.yml, acronyms.yml]
 ```
 
-`path` and `entries` can be combined. A key defined twice stops the render and
-names both sources. In a website or book, a page's own `glossary:` block
-replaces the one in `_quarto.yml`, so repeat the options that page still
-needs.
+`path` and `entries` can be combined. A fragment brought in with
+`{{< include >}}` can carry its own `glossary.entries`, so a reusable
+exercise or section keeps its definitions wherever it appears. A key defined
+twice with the same meaning is one entry; two different meanings stop the
+render and name both sources. In a website or book, a page's own `glossary:`
+block replaces the one in `_quarto.yml`, so repeat the options that page
+still needs.
 
 The `::: {.glossary}` placeholder prints the lists. Terms and acronyms render
 into separate Glossary and Acronyms sections, and empty sections are omitted.
@@ -141,9 +147,10 @@ entries:
 
 Terms require `id`, `term`, and `definition`. Acronyms require `id`,
 `kind: acronym`, `short`, and `long`; `definition` supplies the richer acronym
-list description. When omitted, regular plurals are formed by appending `s`,
-so academic documents should explicitly set irregular or stylistically
-preferred plurals. `see` and `see-also` accept a key or comma-separated/YAML
+list description. When omitted, plurals follow the regular English rules
+(category → categories, box → boxes, analysis → analyses), and acronyms add
+`s`. Set irregular or stylistically preferred plurals explicitly. A misspelt
+field name produces a warning that suggests the right one. `see` and `see-also` accept a key or comma-separated/YAML
 list of keys and are validated during rendering.
 
 For migration, `key` or `label` aliases `id`; `name` aliases `term`;
