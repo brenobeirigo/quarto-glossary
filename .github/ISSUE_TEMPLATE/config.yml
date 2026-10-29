@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Manual
+    url: https://brenobeirigo.github.io/quarto-glossary/
+    about: Installation, options, and the troubleshooting table.
+  - name: Report a security problem privately
+    url: https://github.com/brenobeirigo/quarto-glossary/security/advisories/new
+    about: For reports that need non-public details.

@@ -1,0 +1,22 @@
+name: Feature request
+description: A behavior the extension should support.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you are trying to write
+      description: The document or project, and what the extension does not let you do yet.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed markup or option
+      description: How it could look in a `.qmd` file or in `_quarto.yml`.
+      render: markdown
+  - type: textarea
+    id: latex
+    attributes:
+      label: LaTeX and HTML behavior
+      description: What the PDF and the web page should each show, if it matters.
