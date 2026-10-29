@@ -1,0 +1,24 @@
+---
+title: Glossary website example
+---
+
+## [[fleet-management]] decisions
+
+The operator applies [[fleet-management]] principles and may use [[adp]].
+
+::: {.callout-important title="Balloon inside a callout"}
+The [[decision-epoch]] definition balloon escapes the callout boundary.
+:::
+
+| Location | Glossary reference |
+|---|---|
+| Table cell | [[decision-epoch]] |
+: A responsive table whose caption mentions [[adp]]. {#tbl-balloon-containers}
+
+## [[adp]] methods
+
+Heading references remain plain in the website table of contents, while the
+references in this paragraph keep their definition balloons.
+
+::: {.glossary level="2"}
+:::

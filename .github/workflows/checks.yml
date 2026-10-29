@@ -1,0 +1,45 @@
+name: Quarto extension checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tinytex: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install glossary toolchain
+        run: |
+          tlmgr_path="$(find "$HOME" -name tlmgr -print -quit)"
+          test -n "$tlmgr_path"
+          tex_bin="$(dirname "$tlmgr_path")"
+          echo "$tex_bin" >> "$GITHUB_PATH"
+          export PATH="$tex_bin:$PATH"
+          "$tlmgr_path" update --self
+          "$tlmgr_path" install glossaries glossaries-extra bib2gls fontawesome5
+          java -version
+          "$tex_bin/bib2gls" --version
+      - name: Run render-contract tests
+        run: python -m unittest discover -s tests -v
+      - name: Render document example
+        run: |
+          quarto render example.qmd --to html
+          quarto render example.qmd --to pdf
+      - name: Render website example
+        run: quarto render website-example
+      - name: Render public manual
+        run: quarto render docs

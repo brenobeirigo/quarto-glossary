@@ -1,0 +1,92 @@
+---
+title: Practical examples
+description: Reusable Quarto glossary patterns for articles, books, reports, and websites.
+---
+
+## A self-contained lesson
+
+[Reading a confidence interval](demos/front-matter.qmd) is a complete lesson
+whose five entries sit in its own front matter. It renders to HTML and PDF from
+one `.qmd` file.
+
+## Research article
+
+Use symbols and rich definitions without interrupting the prose:
+
+```yaml
+- id: sample-size
+  term: sample size
+  plural: sample sizes
+  symbol: $n$
+  definition: The number of units included in an analysis, represented by $n$.
+```
+
+```markdown
+The [[sample-size]] was fixed before analysis. Sensitivity checks used larger
+[[sample-size|plural]]. In the equations, [[sample-size|symbol]] denotes the
+number of observations.
+```
+
+## Software documentation
+
+An acronym can expand once and then remain concise:
+
+```markdown
+The client calls the [[api]]. The [[api]] returns [[metadata]] as JSON.
+```
+
+Rendered here: The client calls the [[api]]. The [[api]] returns [[metadata]].
+
+## A definition in a table caption
+
+| Field | Meaning |
+|---|---|
+| `identifier` | A [[doi]] or another stable key |
+| `format` | [[html]] or [[pdf]] |
+: Publication fields used by a [[reproducible-research]] workflow. {#tbl-publication-fields}
+
+The balloon remains visible outside the responsive table container.
+
+## Course or handbook website
+
+Use glossary markup in a heading without changing navigation layout:
+
+```markdown
+## [[reproducible-research]] checklist
+
+Body references still receive an interactive definition.
+```
+
+The heading is plain text in the rendered page and table of contents. The body
+reference remains interactive.
+
+## Multiple lists on one page
+
+The default placeholder creates separate Acronyms and Glossary sections:
+
+```markdown
+::: {.glossary}
+:::
+```
+
+Customize the reader-facing labels without changing the vocabulary:
+
+```markdown
+::: {.glossary
+      title="Key concepts"
+      acronym-title="Abbreviations"
+      level="2"}
+:::
+```
+
+## Literal wording
+
+Semantic form names are reserved in the alias position. Prefix a value with
+`=` when the visible text should literally be that word:
+
+```markdown
+The interface labels this field [[metadata|=short]].
+```
+
+For any other custom wording, write it directly after the pipe. The reference
+still links and indexes the configured entry.

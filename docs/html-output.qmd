@@ -1,0 +1,77 @@
+---
+title: HTML output
+description: Configure accessible balloons or native tooltips in Quarto websites.
+---
+
+## Definition balloons
+
+Balloon mode is the default:
+
+```yaml
+glossary:
+  html-definition-display: balloon
+```
+
+References receive keyboard focus, a visible focus outline, and an accessible
+label containing the term and definition. The bundled dependency-free helper
+creates one popup under the document body and positions it near the active
+reference.
+
+This design preserves the scrolling and clipping behavior of source
+containers. It works when [[metadata]] appears inside:
+
+- callouts;
+- responsive table cells;
+- table captions;
+- columns and cards; and
+- containers with `overflow: auto` or `overflow: hidden`.
+
+Press <kbd>Escape</kbd> to dismiss an open balloon. Moving focus or the
+pointer away also closes it.
+
+## Browser or Quarto tooltips
+
+To use a native `title`-based tooltip instead:
+
+```yaml
+glossary:
+  html-definition-display: tooltip
+```
+
+Tooltip mode omits the balloon JavaScript and data attributes. The two modes
+are exclusive, preventing duplicate definition surfaces.
+
+## Links and list anchors
+
+With `link: true`, a reference links to its entry in a generated list. The link
+is only created when that entry exists: on the same page, or on the page named
+by `html-glossary-page`. A page with no list gets focusable, unlinked terms
+that still show their definitions, so readers never follow a link to nothing.
+
+Set `link: false` to turn links off everywhere:
+
+```yaml
+glossary:
+  link: false
+```
+
+## Slides and other formats
+
+Reveal.js slides are HTML, so balloons work there too. Word and Typst output
+get plain references and the generated lists, with links when the document has
+a list to point at.
+
+## Styling
+
+The extension deliberately uses Bootstrap-compatible color variables so it
+adapts to Quarto light and dark themes. Override the popup narrowly in project
+CSS when required:
+
+```css
+.glossary-balloon-popup {
+  max-width: min(36rem, calc(100vw - 1rem));
+}
+```
+
+Do not restore a `::after` balloon on `.glossary-term`; pseudo-elements are
+trapped by overflowing callouts and responsive tables.

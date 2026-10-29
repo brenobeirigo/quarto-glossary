@@ -1,0 +1,95 @@
+---
+title: Get started
+description: Install Quarto Glossary and render a first document with terms and acronyms.
+---
+
+## Requirements
+
+- Quarto 1.4 or newer.
+- Nothing else for HTML. The filter is Lua and the balloon script is plain
+  JavaScript with no dependencies.
+- For PDF, a TeX distribution with `glossaries` and `glossaries-extra`.
+  TinyTeX installs them on demand (`quarto install tinytex`).
+
+## Install
+
+Run this from the root of each Quarto project:
+
+```bash
+quarto add brenobeirigo/quarto-glossary
+```
+
+Quarto copies the extension into `_extensions/brenobeirigo/glossary`. Commit
+that directory with the project so every build uses the same version.
+`quarto list extensions` shows the installed version.
+
+## A first document
+
+Create `lesson.qmd`. The vocabulary sits in the [[front-matter]], so this one
+file is all you need:
+
+```markdown
+---
+title: First glossary
+filters: [glossary]
+glossary:
+  entries:
+    - id: metadata
+      term: metadata
+      definition: Structured information describing another resource.
+
+    - id: api
+      kind: acronym
+      short: API
+      long: application programming interface
+      definition: An interface through which software components communicate.
+---
+
+The [[metadata]] are available through an [[api]]. Later, the [[api]]
+returns the current record.
+
+::: {.glossary}
+:::
+```
+
+Render it:
+
+```bash
+quarto render lesson.qmd --to html
+quarto render lesson.qmd --to pdf
+```
+
+The text reads:
+
+> The [[metadata]] are available through an [[api]]. Later, the [[api]]
+> returns the current record.
+
+The first [[api|short]] reference expands. The second is abbreviated. The
+placeholder prints an Acronyms list and a Glossary list with the entries the
+document used.
+
+## Move the terms to a file
+
+When several documents share terms, move the `entries` list into
+`glossary.yml` and point the documents or `_quarto.yml` at it:
+
+```yaml
+filters: [glossary]
+glossary:
+  path: glossary.yml
+```
+
+[Ways to define terms](define-terms.qmd) covers several files, JSON, and
+websites with a shared glossary page.
+
+## Update
+
+Run the installation command again from the project root:
+
+```bash
+quarto add brenobeirigo/quarto-glossary
+```
+
+Review and commit the changed files under `_extensions/`. The
+[changelog](https://github.com/brenobeirigo/quarto-glossary/blob/main/CHANGELOG.md)
+lists what changed in each release.

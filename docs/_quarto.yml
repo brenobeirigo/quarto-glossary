@@ -1,0 +1,86 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - "*.qmd"
+    - "demos/*.qmd"
+
+website:
+  title: Quarto Glossary
+  site-url: https://brenobeirigo.github.io/quarto-glossary/
+  description: LaTeX-style glossaries and acronym lists for Quarto, with hover definitions on the web and native glossaries in PDF.
+  favicon: favicon.svg
+  image: images/social-card.png
+  open-graph: true
+  twitter-card:
+    card-style: summary_large_image
+  navbar:
+    left:
+      - href: index.qmd
+        text: Overview
+      - href: getting-started.qmd
+        text: Get started
+      - text: Guides
+        menu:
+          - href: define-terms.qmd
+            text: Ways to define terms
+          - href: authoring.qmd
+            text: Authoring references
+          - href: agents.qmd
+            text: Writing with agents
+          - text: "---"
+          - href: html-output.qmd
+            text: HTML output
+          - href: latex-output.qmd
+            text: LaTeX and PDF output
+          - text: "---"
+          - href: examples.qmd
+            text: Practical examples
+          - href: demos/front-matter.qmd
+            text: "Demo: a lesson with front-matter terms"
+      - href: reference.qmd
+        text: Reference
+      - href: glossary.qmd
+        text: Glossary
+    right:
+      - icon: github
+        href: https://github.com/brenobeirigo/quarto-glossary
+        aria-label: Source code on GitHub
+  page-footer:
+    left: "Made by Breno Beirigo. Released under the MIT License."
+    right: "Built with Quarto and this extension."
+  repo-url: https://github.com/brenobeirigo/quarto-glossary
+  repo-subdir: docs
+  repo-actions: [edit, issue]
+  search: true
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    code-overflow: wrap
+    link-external-newwindow: true
+
+filters:
+  - ../_extensions/glossary/glossary.lua
+
+# Every page reads docs/glossary.yml. References on pages without their own
+# list link to the shared Glossary page.
+glossary:
+  path: glossary.yml
+  strict: true
+  include-unused: false
+  link: true
+  html-definition-display: balloon
+  html-glossary-page: glossary.qmd
+  title: Glossary
+  acronym-title: Acronyms
+  heading-level: 2
+
+execute:
+  enabled: false

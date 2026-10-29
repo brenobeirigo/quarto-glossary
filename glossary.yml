@@ -1,0 +1,26 @@
+entries:
+  - id: fleet-management
+    term: fleet management
+    plural: fleet-management practices
+    definition: Coordinating a fleet's resources and decisions to meet service objectives.
+    tooltip: Coordinating fleet resources and decisions to meet service objectives.
+
+  - id: adp
+    kind: acronym
+    short: ADP
+    long: approximate dynamic programming
+    short-plural: ADP methods
+    long-plural: approximate dynamic programming methods
+    definition: A family of methods that approximate downstream value in sequential decisions [@powell2022].
+    tooltip: Methods that approximate downstream value in sequential decisions.
+
+  - id: decision-epoch
+    term: decision epoch
+    plural: decision epochs
+    symbol: $t$
+    definition: A **time point** at which the system state $S_t$ is observed and a decision is made.
+    tooltip: A time point at which the system state is observed and a decision is made.
+    see:
+      - fleet-management
+    see-also:
+      - adp

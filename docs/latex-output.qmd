@@ -1,0 +1,89 @@
+---
+title: LaTeX and PDF output
+description: Produce academic glossaries and acronym lists with standard LaTeX packages.
+---
+
+## Academic defaults
+
+The default configuration uses `glossaries-extra`, the portable `noidx`
+backend, and the `long-short-desc` acronym style:
+
+```yaml
+glossary:
+  latex-package: glossaries-extra
+  latex-backend: noidx
+  acronym-style: long-short-desc
+  latex-location-lists: false
+```
+
+This gives first uses such as “application programming interface (API)” and
+keeps a descriptive acronym list. Acronyms remain distinct from ordinary
+glossary entries.
+
+## Choose a backend
+
+| Backend | Recommended use | Extra build command |
+|---|---|---|
+| `noidx` | Articles, reports, teaching material, portable projects | None |
+| `makeindex` | Theses, books, established publisher toolchains | `makeglossaries` |
+| `bib2gls` | Large or multilingual vocabularies; Unicode-aware sorting | `bib2gls` |
+: LaTeX indexing backends. {#tbl-latex-backends}
+
+`noidx` is the most reproducible default because an ordinary Quarto PDF render
+is sufficient:
+
+```bash
+quarto render paper.qmd --to pdf
+```
+
+## Conventional indexed builds
+
+For `makeindex`:
+
+```bash
+quarto render paper.qmd --to latex
+lualatex paper.tex
+makeglossaries paper
+lualatex paper.tex
+lualatex paper.tex
+```
+
+For `bib2gls`, the extension generates a portable glossary database beside the
+LaTeX document:
+
+```bash
+quarto render paper.qmd --to latex
+lualatex paper.tex
+bib2gls paper
+lualatex paper.tex
+lualatex paper.tex
+```
+
+## Recommendations for academic writing
+
+- Define an acronym only when its short form is used again.
+- Supply explicit plurals when scholarly style or grammar differs from simply
+  appending `s`.
+- Keep the first-use form in prose even when the acronym also appears in an
+  abstract, figure, or table; publisher rules often treat these regions
+  independently.
+- Leave location lists disabled for compact journal articles. Enable them for
+  theses and books when readers benefit from page references or `see-also`
+  relations.
+- Use a stable `sort` value for symbols, capitalization variants, and
+  multilingual vocabularies.
+- Keep definitions concise and descriptive. Put argumentation and literature
+  review in the main text, not in a glossary entry.
+
+## Related entries
+
+`see` and `see-also` become the `see` and `seealso` keys of each entry. An
+entry that is only named by another entry's `see` or `see-also` is added to the
+lists with `\glsadd`, so the cross-reference in the PDF has a target. With
+`bib2gls`, the `recorded and deps` selection does the same.
+
+## Base package compatibility
+
+Set `latex-package: glossaries` when a publisher forbids `glossaries-extra`.
+The base package supports the primary term and acronym workflow, but
+`see-also` intentionally requires `glossaries-extra`.

@@ -1,0 +1,21 @@
+**/.quarto/
+_quarto-glossary-*.bib
+**/_site/
+docs/_site/
+**/__pycache__/
+/*.html
+/*.pdf
+/*.tex
+/*.aux
+/*.log
+/*.out
+/*.glo
+/*.gls
+/*.glg
+/*.acn
+/*.acr
+/*.alg
+/*_files/
+
+# Local list of private words checked by the test suite.
+tests/private-terms.txt

@@ -1,0 +1,123 @@
+---
+title: Reading a confidence interval
+subtitle: A short lesson whose terms live in its own front matter
+description: A demo page. Every glossary entry is defined in this document's YAML front matter, with no vocabulary file.
+format:
+  html: default
+  pdf:
+    toc: false
+    colorlinks: true
+glossary:
+  heading-level: 2
+  entries:
+    - id: population-mean
+      term: population mean
+      symbol: $\mu$
+      definition: The average of a quantity over the whole population, written $\mu$. It is usually unknown.
+      tooltip: The average over the whole population. It is usually unknown.
+
+    - id: sample-mean
+      term: sample mean
+      plural: sample means
+      symbol: $\bar{x}$
+      definition: The average of the observed values in one sample, written $\bar{x}$. It estimates the population mean.
+      tooltip: The average of the observed values in one sample.
+      see-also: population-mean
+
+    - id: se
+      kind: acronym
+      short: SE
+      long: standard error
+      definition: The standard deviation of an estimate across repeated samples. For a sample mean it is about $s/\sqrt{n}$.
+      tooltip: How much an estimate varies from sample to sample.
+
+    - id: ci
+      kind: acronym
+      short: CI
+      long: confidence interval
+      definition: A range computed from a sample. Over repeated samples, a stated share of such ranges contains the true value.
+      tooltip: A range that, over repeated samples, contains the true value a stated share of the time.
+      see: confidence-level
+
+    - id: confidence-level
+      term: confidence level
+      definition: The share of intervals, over repeated samples, that contain the true value. Common choices are 90%, 95%, and 99%.
+      tooltip: The share of intervals, over repeated samples, that contain the true value.
+---
+
+::: {.content-visible when-format="html"}
+::: {.callout-tip title="How this page is built"}
+The five entries sit in the `glossary.entries` block of this page's front
+matter. The same source renders to this page and to a PDF (under *Other
+formats*). The front matter is shown [at the end of the page](#the-source).
+:::
+:::
+
+## The question
+
+A class measures the resting heart rate of 40 students and wants to say
+something about every student at the university. The [[population-mean]]
+[[population-mean|symbol]] is unknown. The data give one
+[[sample-mean]], [[sample-mean|symbol]] = 68 beats per minute (bpm), with a
+sample standard deviation $s = 9$ bpm.
+
+## From one sample to a range
+
+Another class would get a different [[sample-mean]]. The [[se]] measures how
+much [[sample-mean|plural]] vary from sample to sample:
+
+$$
+\text{SE} = \frac{s}{\sqrt{n}} = \frac{9}{\sqrt{40}} \approx 1.42 \text{ bpm}.
+$$
+
+A 95% [[ci]] is roughly [[sample-mean|symbol]] ± 2 [[se]], which gives 65.2 to
+70.8 bpm.
+
+## What 95% means
+
+The [[confidence-level]] describes the procedure. If many classes repeated the
+study and each computed its own interval, about 95% of those
+[[ci|short-plural]] would contain [[population-mean|symbol]]. One computed
+interval either contains [[population-mean|symbol]] or misses it.
+
+[[sample-mean|cap:plural]] from larger samples vary less, so their
+[[ci|short-plural]] are narrower: the [[se|short]] shrinks with $\sqrt{n}$.
+
+::: {.glossary}
+:::
+
+::: {.content-visible when-format="html"}
+## The source {#the-source}
+
+The front matter of this page, trimmed to the first two entries:
+
+```yaml
+---
+title: Reading a confidence interval
+format:
+  html: default
+  pdf: default
+glossary:
+  heading-level: 2
+  entries:
+    - id: population-mean
+      term: population mean
+      symbol: $\mu$
+      definition: The average of a quantity over the whole population,
+        written $\mu$. It is usually unknown.
+    - id: se
+      kind: acronym
+      short: SE
+      long: standard error
+      definition: The standard deviation of an estimate across repeated
+        samples. For a sample mean it is about $s/\sqrt{n}$.
+---
+```
+
+In the text, the references are ordinary wiki links:
+
+```markdown
+The [[se]] measures how much [[sample-mean|plural]] vary.
+A 95% [[ci]] is roughly [[sample-mean|symbol]] ± 2 [[se]].
+```
+:::

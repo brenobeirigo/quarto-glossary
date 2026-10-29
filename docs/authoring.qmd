@@ -1,0 +1,90 @@
+---
+title: Authoring terms and acronyms
+description: Define entries, choose reference forms, and control generated lists.
+---
+
+## Terms and acronyms are different
+
+A glossary term names a concept, while an acronym records a short and long
+form. Keep them distinct in the vocabulary:
+
+```yaml
+entries:
+  - id: reproducible-research
+    term: reproducible research
+    definition: Research with documented data, methods, and computations.
+
+  - id: doi
+    kind: acronym
+    short: DOI
+    long: digital object identifier
+    short-plural: DOIs
+    long-plural: digital object identifiers
+    definition: A persistent identifier for a digital object.
+```
+
+The first automatic reference to [[doi]] uses the long and short forms. A
+later [[doi]] uses the abbreviation. Explicit forms let the author override
+that state when the sentence requires it.
+
+## Reference forms
+
+| Markup | Rendered intent |
+|---|---|
+| `[[key]]` | Automatic singular form; expand an acronym on first use |
+| `[[key\|plural]]` | Automatic plural form |
+| `[[key\|short]]` | Acronym short form |
+| `[[key\|long]]` | Acronym long form |
+| `[[key\|full]]` | Acronym long and short forms |
+| `[[key\|short-plural]]` | Explicit short plural |
+| `[[key\|long-plural]]` | Explicit long plural |
+| `[[key\|full-plural]]` | Explicit full plural |
+| `[[key\|symbol]]` | Associated symbol |
+| `[[key\|cap:plural]]` | Capitalized semantic form |
+| `[[key\|custom wording]]` | Literal visible wording |
+| `[[key\|=plural]]` | Literal word that would otherwise select a form |
+: Supported authoring forms. {#tbl-reference-forms}
+
+For example, [[sample-size|cap:plural]] may differ between studies. The
+associated symbol is [[sample-size|symbol]].
+
+## Rich definitions
+
+Definitions may contain Markdown emphasis, links, mathematics, and Pandoc
+citations. Use a shorter, plain-language `tooltip` when the complete
+definition is too long for an HTML balloon:
+
+```yaml
+- id: sample-size
+  term: sample size
+  plural: sample sizes
+  symbol: $n$
+  definition: The number of units in an analysis, represented by $n$.
+  tooltip: The number of units included in an analysis.
+```
+
+## Related terms
+
+Use `see` for a preferred term and `see-also` for related concepts. Both
+accept one key, a comma-separated value, or a YAML list. Unknown related keys
+fail the render, preventing broken scholarly cross-references.
+
+## Custom list labels and anchors
+
+```markdown
+::: {#terms .glossary
+      title="Terminology"
+      acronym-title="Abbreviations"
+      acronym-id="abbreviations"
+      level="2"}
+:::
+```
+
+Set `include-unused: true` to print the complete vocabulary. The default is
+`false`, which keeps lists specific to the rendered document.
+
+## Headings and navigation
+
+`## [[reproducible-research]]` becomes a plain heading. It counts as a use but
+does not create a nested link, definition balloon, or first-use acronym side
+effect. This keeps website sidebars and tables of contents aligned.

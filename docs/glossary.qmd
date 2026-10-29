@@ -1,0 +1,21 @@
+---
+title: Glossary
+description: Every term and acronym defined for this manual.
+toc: false
+---
+
+This page lists the complete vocabulary of this manual, read from
+[`docs/glossary.yml`](https://github.com/brenobeirigo/quarto-glossary/blob/main/docs/glossary.yml).
+The project sets `html-glossary-page: glossary.qmd`, so a reference on any
+page without its own list links to an entry here.
+
+The placeholder below uses `include-unused="true"` to print every entry,
+whether or not this page cites it:
+
+```markdown
+::: {.glossary include-unused="true" title="Terms"}
+:::
+```
+
+::: {.glossary include-unused="true" title="Terms"}
+:::

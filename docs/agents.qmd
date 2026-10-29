@@ -1,0 +1,81 @@
+---
+title: Writing with agents
+description: Give writing and coding agents a fixed vocabulary, and let strict mode check what they produce.
+---
+
+## The problem
+
+Agents built on an [[llm]] write fast and drift in vocabulary. Over a long
+draft the same concept gets two or three names, and general-purpose words
+such as "leverage", "robust", and "seamless" show up in a methods section. In
+science and teaching that costs readers: a student who meets "decision
+point", "decision epoch", and "stage" in one chapter has to work out whether
+those are three ideas or one.
+
+A [[controlled-vocabulary]] addresses both sides. The agent gets a fixed list
+of terms with their exact wording. The reader gets a definition on hover and a
+list at the end.
+
+## Setup
+
+1. Keep the vocabulary in the repository, in `glossary.yml` or in the
+   document's [[front-matter]]. See [Ways to define terms](define-terms.qmd).
+2. Leave [[strict-mode]] on. It is the default.
+3. Tell the agent the rules in the instructions file it reads, such as
+   `AGENTS.md`, `CLAUDE.md`, or `.github/copilot-instructions.md`.
+4. Make `quarto render` part of the agent's definition of done, and of CI.
+
+## Instructions to copy
+
+```markdown
+## Vocabulary
+
+- Use only the terms defined in glossary.yml. Refer to each one as [[id]],
+  for example [[sample-size]]. Use [[id|plural]] for plurals and
+  [[id|cap:plural]] at the start of a sentence.
+- Do not paraphrase a defined term or invent a synonym for it.
+- If a concept has no entry, stop and propose one with id, term, and
+  definition. Do not add it to glossary.yml without approval.
+- Keep definitions to one or two plain sentences. Put arguments and
+  citations in the text.
+- Run `quarto render` before you finish. An unknown key fails the build.
+```
+
+## What a failure looks like
+
+When the agent writes a key that the vocabulary does not define, the render
+stops and names the key and the file:
+
+```console
+$ quarto render chapter-2.qmd
+glossary: unknown glossary key [[robust-estimator]] in chapter-2.qmd
+```
+
+A duplicate key fails the same way and names both places it was defined:
+
+```console
+glossary: duplicate glossary id 'se' in glossary.yml and glossary.entries
+```
+
+Either message is a prompt for a decision: add the entry, or rewrite the
+sentence with an existing term.
+
+## Reviewing new entries
+
+Treat a proposed entry like a code change. Check that the wording matches your
+field, that the definition is short enough for a balloon, and that the term
+does not duplicate an existing one under another name. `see` and `see-also`
+link related entries, and the render fails if either names an unknown key.
+
+## Checking in CI
+
+The repository's own workflow renders the documents on every push. Any
+project can do the same with the Quarto GitHub action:
+
+```yaml
+- uses: quarto-dev/quarto-actions/setup@v2
+- run: quarto render
+```
+
+An agent that opens a pull request with an undefined term then gets a red
+check before a person reviews the text.

@@ -1,0 +1,113 @@
+entries:
+  - id: controlled-vocabulary
+    term: controlled vocabulary
+    plural: controlled vocabularies
+    definition: A maintained collection of terms whose labels and meanings are defined consistently for a document or field.
+    tooltip: A maintained collection of consistently defined terms.
+
+  - id: metadata
+    term: metadata
+    definition: Structured information that describes the identity, origin, organization, or interpretation of another resource.
+    tooltip: Structured information describing another resource.
+
+  - id: reproducible-research
+    term: reproducible research
+    definition: Research whose data, methods, and computational steps are documented well enough for others to regenerate or closely verify the reported results.
+    tooltip: Research with documented data, methods, and computational steps.
+    see-also:
+      - controlled-vocabulary
+
+  - id: sample-size
+    term: sample size
+    plural: sample sizes
+    symbol: $n$
+    definition: The number of observational or experimental units included in an analysis, commonly represented by $n$.
+    tooltip: The number of units included in an analysis.
+
+  - id: api
+    kind: acronym
+    short: API
+    long: application programming interface
+    short-plural: APIs
+    long-plural: application programming interfaces
+    definition: A documented interface through which software components exchange requests and results.
+    tooltip: An interface through which software components communicate.
+
+  - id: doi
+    kind: acronym
+    short: DOI
+    long: digital object identifier
+    short-plural: DOIs
+    long-plural: digital object identifiers
+    definition: A persistent identifier commonly assigned to scholarly outputs and other digital objects.
+    tooltip: A persistent identifier for a digital object.
+
+  - id: html
+    kind: acronym
+    short: HTML
+    long: HyperText Markup Language
+    definition: The markup language used to structure content for web browsers.
+    tooltip: The markup language used to structure web content.
+
+  - id: pdf
+    kind: acronym
+    short: PDF
+    long: Portable Document Format
+    short-plural: PDFs
+    long-plural: Portable Document Format files
+    definition: A file format designed to preserve a document's page layout across devices and operating systems.
+    tooltip: A format that preserves a document's page layout.
+
+  - id: latex
+    term: LaTeX
+    text: LaTeX
+    plural: LaTeX documents
+    sort: latex
+    definition: A typesetting system used for most papers, theses, and books in mathematics, physics, and engineering. Its `glossaries` package inspired this extension.
+    tooltip: The typesetting system used for most scientific papers and theses.
+
+  - id: front-matter
+    term: front matter
+    definition: The YAML block between two `---` lines at the top of a Quarto document. It holds the title and options and, with this extension, can hold glossary entries.
+    tooltip: The YAML settings block at the top of a Quarto document.
+
+  - id: wiki-link
+    term: wiki link
+    plural: wiki links
+    definition: A reference written as a key inside double square brackets. The syntax comes from wikis and from Obsidian.
+    tooltip: A key inside double square brackets, as in wikis and Obsidian.
+
+  - id: first-use
+    term: first use
+    definition: The first reference to an acronym in a document. It prints the long form followed by the abbreviation. Later references print the abbreviation alone.
+    tooltip: The first reference to an acronym, which prints the long form and the abbreviation.
+
+  - id: strict-mode
+    term: strict mode
+    definition: 'The default setting, `strict: true`, in which a reference to an unknown key stops the render with an error that names the key and the file.'
+    tooltip: The default setting in which an unknown key stops the render.
+    see-also:
+      - controlled-vocabulary
+
+  - id: llm
+    kind: acronym
+    short: LLM
+    long: large language model
+    short-plural: LLMs
+    long-plural: large language models
+    definition: A neural network trained on large amounts of text to predict and generate language. Coding and writing agents are built on these models.
+    tooltip: A neural network trained on text to predict and generate language.
+
+  - id: yaml
+    kind: acronym
+    short: YAML
+    long: YAML Ain't Markup Language
+    definition: A plain-text format for structured data. Quarto uses it for document and project settings.
+    tooltip: A plain-text format for structured data, used by Quarto for settings.
+
+  - id: json
+    kind: acronym
+    short: JSON
+    long: JavaScript Object Notation
+    definition: A plain-text format for structured data, common in software and web services.
+    tooltip: A plain-text format for structured data.

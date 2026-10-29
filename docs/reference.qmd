@@ -1,0 +1,104 @@
+---
+title: Configuration reference
+description: Complete vocabulary fields, project options, and validation behavior.
+---
+
+## Project options
+
+| Option | Default | Purpose |
+|---|---|---|
+| `path` | `glossary.yml` | One YAML or JSON file, a list of files, or `false` for none |
+| `entries` | none | Entries written directly in the document or project metadata |
+| `strict` | `true` | Fail on unknown wiki-link keys |
+| `include-unused` | `false` | Include every vocabulary entry in generated lists |
+| `link` | `true` | Link references to generated list entries |
+| `html-definition-display` | `balloon` | Choose `balloon` or `tooltip` |
+| `title` | `Glossary` | Ordinary-term list title |
+| `acronym-title` | `Acronyms` | Acronym-list title |
+| `heading-level` | `1` | Generated HTML heading level |
+| `html-glossary-page` | empty | Page holding the lists; references on other pages link there |
+| `latex-load-package` | `true` | Load the selected LaTeX package |
+| `latex-package` | `glossaries-extra` | Choose `glossaries-extra` or `glossaries` |
+| `latex-backend` | `noidx` | Choose `noidx`, `makeindex`, or `bib2gls` |
+| `latex-location-lists` | `false` | Retain page or location references |
+| `latex-sort` | `word` | Choose `word`, `letter`, `case`, `def`, or `use` |
+| `latex-style` | empty | Optional LaTeX glossary style, such as `altlist` |
+| `acronym-style` | `long-short-desc` | LaTeX acronym style |
+| `bib2gls-file` | generated | Optional generated database path |
+: Project-level configuration. {#tbl-project-options}
+
+When `path` is absent and `entries` is set, no file is read. When both are
+absent, the extension reads `glossary.yml`.
+
+## Placeholder attributes
+
+A `::: {.glossary}` placeholder accepts attributes that override the project
+options for that list:
+
+| Attribute | Default | Purpose |
+|---|---|---|
+| `#id` | `glossary` | Anchor of the term list |
+| `title` | `title` option | Term-list heading |
+| `acronym-title` | `acronym-title` option | Acronym-list heading |
+| `acronym-id` | `acronyms` | Anchor of the acronym list |
+| `level` | `heading-level` option | Heading level of both lists |
+| `include-unused` | `include-unused` option | `"true"` lists every entry, as on a shared glossary page |
+: Placeholder attributes. {#tbl-placeholder-attributes}
+
+```markdown
+::: {#terms .glossary title="Key concepts" acronym-title="Abbreviations" level="2"}
+:::
+```
+
+Entries named by another entry's `see` or `see-also` are printed with it, so a
+cross-reference in a list always has a target.
+
+## Term fields
+
+| Field | Required | Notes |
+|---|---:|---|
+| `id` | Yes | Stable wiki-link key and output anchor |
+| `term` | Yes | Canonical singular label |
+| `definition` | Yes | Markdown-capable definition |
+| `plural` | No | Defaults to the term plus `s` |
+| `text` | No | Explicit text form |
+| `first` | No | Explicit first-use form |
+| `first-plural` | No | Explicit plural first-use form |
+| `symbol` | No | Associated symbol or notation |
+| `tooltip` | No | Short plain-language HTML definition |
+| `sort` | No | Stable sorting label |
+| `see` | No | Preferred related entry or entries |
+| `see-also` | No | Related entry or entries |
+: Ordinary glossary-entry fields. {#tbl-term-fields}
+
+## Acronym fields
+
+| Field | Required | Notes |
+|---|---:|---|
+| `id` | Yes | Stable wiki-link key |
+| `kind: acronym` | Yes | Selects acronym behavior and list |
+| `short` | Yes | Abbreviated form |
+| `long` | Yes | Expanded form |
+| `definition` | No | Rich description in the acronym list |
+| `short-plural` | No | Explicit abbreviated plural |
+| `long-plural` | No | Explicit expanded plural |
+| `tooltip` | No | Short HTML definition |
+| `sort` | No | Stable sorting label |
+: Acronym-entry fields. {#tbl-acronym-fields}
+
+## Compatibility aliases
+
+Existing vocabularies may use `key` or `label` for `id`, `name` for `term`,
+`description` for `definition`, `abbreviation` or `acronym` for `short`, and
+`expansion` for `long`. A file may hold a `terms` list or `groups[].rows` in
+place of `entries`.
+
+New vocabularies should use the canonical field names shown above.
+
+## Validation
+
+The render fails for duplicate IDs (within one source or across files and
+`entries`), a missing vocabulary file, unknown reference keys in strict mode,
+unknown `see` or `see-also` targets, invalid HTML display modes, unsupported
+LaTeX packages or backends, and incompatible base-package features. These
+checks make vocabulary mistakes visible during local rendering and CI.

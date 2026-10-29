@@ -1,0 +1,179 @@
+---
+title: Ways to define terms
+description: Define glossary entries in a document's front matter, in one or more YAML or JSON files, or in both.
+---
+
+Entries can come from three places. The extension reads all of them, checks
+for duplicate keys, and treats the result as one vocabulary.
+
+| Where | Option | Best for |
+|---|---|---|
+| The document's [[front-matter]] | `glossary.entries` | One self-contained document, a handout, a demo |
+| One [[yaml|short]] or [[json|short]] file | `glossary.path: glossary.yml` | A paper, a thesis, a course |
+| Several files | `glossary.path: [a.yml, b.yml]` | Shared vocabularies split by topic |
+: Sources of glossary entries. {#tbl-sources}
+
+## In the front matter
+
+The whole vocabulary can live inside the document. No other file is needed:
+
+```yaml
+---
+title: Reading a confidence interval
+filters: [glossary]
+glossary:
+  entries:
+    - id: se
+      kind: acronym
+      short: SE
+      long: standard error
+      definition: The standard deviation of an estimate across repeated samples.
+
+    - id: sample-mean
+      term: sample mean
+      plural: sample means
+      symbol: $\bar{x}$
+      definition: The average of the observed values in one sample.
+---
+
+The [[se]] of the [[sample-mean]] shrinks as the sample grows.
+
+::: {.glossary}
+:::
+```
+
+Entries take the same fields as in a file. See the
+[field reference](reference.qmd#term-fields). The
+[confidence-interval lesson](demos/front-matter.qmd) is built this way and
+renders to both HTML and PDF.
+
+## In one file
+
+Point `path` at a YAML or JSON file with an `entries` list:
+
+```yaml
+filters: [glossary]
+glossary:
+  path: glossary.yml
+```
+
+```yaml
+# glossary.yml
+entries:
+  - id: sample-size
+    term: sample size
+    plural: sample sizes
+    symbol: $n$
+    definition: The number of units included in an analysis.
+
+  - id: doi
+    kind: acronym
+    short: DOI
+    long: digital object identifier
+    short-plural: DOIs
+    definition: A persistent identifier for a digital object.
+```
+
+When `glossary` has neither `path` nor `entries`, the extension looks for
+`glossary.yml`. Relative paths are resolved against the project directory
+first and then against the document's directory.
+
+The JSON form uses the same field names:
+
+```json
+{
+  "entries": [
+    {"id": "doi", "kind": "acronym", "short": "DOI",
+     "long": "digital object identifier",
+     "definition": "A persistent identifier for a digital object."}
+  ]
+}
+```
+
+## In several files
+
+`path` also accepts a list. The files are read in order:
+
+```yaml
+glossary:
+  path:
+    - statistics.yml
+    - acronyms.yml
+    - course-2026.json
+```
+
+A key defined in two places stops the render and names both:
+
+```console
+glossary: duplicate glossary id 'se' in statistics.yml and acronyms.yml
+```
+
+## Files plus page terms
+
+`path` and `entries` combine. Use this when a lecture needs a few terms that
+the shared vocabulary does not:
+
+```yaml
+glossary:
+  path: course.yml
+  entries:
+    - id: bootstrap
+      term: bootstrap
+      definition: Resampling the data with replacement to estimate the
+        variability of a statistic.
+```
+
+Set `path: false` to load no file at all, for example when the project
+default should not apply to one page.
+
+## Websites and books
+
+Put the shared options in `_quarto.yml`:
+
+```yaml
+filters: [glossary]
+glossary:
+  path: glossary.yml
+  html-glossary-page: glossary.qmd
+```
+
+Create `glossary.qmd` with a placeholder that lists every entry:
+
+```markdown
+---
+title: Glossary
+---
+
+::: {.glossary include-unused="true"}
+:::
+```
+
+References on every other page then link to that page. A page with its own
+placeholder keeps its links on the page. This manual uses exactly this setup.
+
+::: {.callout-important title="A page's glossary block replaces the project's"}
+Quarto merges project and page metadata key by key. When a page sets its own
+`glossary:` block, that block replaces the one in `_quarto.yml`. It is not
+merged with it. A page that adds `entries` must repeat any project options it
+still needs:
+
+```yaml
+glossary:
+  path: glossary.yml
+  html-glossary-page: glossary.qmd
+  entries:
+    - id: bootstrap
+      term: bootstrap
+      definition: Resampling the data with replacement.
+```
+
+The [demo lesson](demos/front-matter.qmd) relies on this: its own
+`glossary:` block drops the manual's vocabulary file and glossary page.
+:::
+
+## Older schemas
+
+For vocabularies written for other tools, `key` or `label` work as `id`,
+`name` as `term`, `description` as `definition`, `abbreviation` or `acronym`
+as `short`, and `expansion` as `long`. A file may also use a `terms` list or
+groups of rows (`groups[].rows`) in place of `entries`.
