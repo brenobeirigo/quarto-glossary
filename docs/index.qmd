@@ -11,9 +11,10 @@ body-classes: landing-page
 ::: {.hero}
 # Glossaries for Quarto, the way LaTeX does them {.hero-title}
 
-Write a key in double square brackets. Web readers hover over the term and see
-its definition. The PDF gets a real `\gls{key}` from LaTeX's `glossaries`
-package. Both come from one vocabulary, written in YAML.
+Write a key in double square brackets, the [[wiki-link]] syntax from
+Obsidian. Web readers hover over the term and see its
+definition. The PDF gets `\gls{key}` from LaTeX's `glossaries` package. Both
+come from one vocabulary that you write in YAML.
 
 ```bash
 quarto add brenobeirigo/quarto-glossary
@@ -50,25 +51,30 @@ keeps an [[llm]] on the terms your field already uses.
 :::
 
 The first reference to the acronym printed the long form and the
-abbreviation. The second printed the abbreviation alone. That is the
-[[first-use]] rule from LaTeX, applied on the web.
+abbreviation. The second printed the abbreviation alone. LaTeX calls this the
+[[first-use]] rule, and the extension applies it on the web too.
 
 ## Why I built it
 
 [[latex]] has had the `glossaries` package for years. You define a term
 or an acronym once. The first use of an acronym expands it, later uses
 abbreviate it, and the list at the end of the document contains exactly the
-entries you cited. I needed the same thing in Quarto, for papers, lecture
-notes, and course websites, and no extension did all of it. So I wrote this
-one.
+entries you cited. I wanted the same thing in Quarto for papers, lecture
+notes, and course websites. The Quarto extensions I found each covered part
+of it, so I wrote this one.
+
+The brackets come from Obsidian, where `[[Note name]]` links one note to
+another. I use them for terms. `[[key]]` refers to an entry, and
+`[[key|other text]]` changes the words on the page, as in an Obsidian link.
 
 I also draft with AI agents, and they drift. A few pages in, a model calls one
 concept by three names and starts using words like "leverage" and "seamless".
 I write mostly for science and education, where a term should mean one thing
 and students need to know what that thing is. A glossary file fixes the
-vocabulary for the agent and defines it for the reader. The agent writes
-`[[key]]`, [[strict-mode]] stops the render when it invents a key, and
-students get the definition on hover.
+vocabulary for the agent and defines it for the reader.
+
+The agent writes `[[key]]`. When it invents a key, [[strict-mode]] stops the
+render. Students get the definition on hover.
 
 ## Define terms where they fit
 
@@ -76,8 +82,8 @@ students get the definition on hover.
 
 ### In the document
 
-Put the entries in the [[front-matter]]. The document is self-contained: one
-`.qmd` file, nothing else to ship.
+Put the entries in the [[front-matter]]. The lesson is then one `.qmd` file
+with nothing else to ship.
 
 ```yaml
 ---
@@ -119,7 +125,7 @@ entries:
     definition: The number of units included in an analysis.
 ```
 
-This manual works this way. Its vocabulary is
+This manual keeps its vocabulary in
 [`docs/glossary.yml`](https://github.com/brenobeirigo/quarto-glossary/blob/main/docs/glossary.yml).
 
 ### In several files
@@ -149,8 +155,8 @@ glossary:
 
 ### Website or book
 
-Set the options once in `_quarto.yml`. Give the lists their own page and every
-reference on every page links there.
+Set the options once in `_quarto.yml` and give the lists their own page.
+References on every other page then link to that page.
 
 ```yaml
 glossary:
@@ -167,7 +173,7 @@ glossary:
 See this manual's [Glossary](glossary.qmd) page.
 :::
 
-## One source, two outputs
+## HTML and PDF from one source
 
 ::: {.demo-grid}
 ::: {.demo-pane}
@@ -215,7 +221,7 @@ When the agent invents a key, the render stops and names it:
 glossary: unknown glossary key [[robust-estimator]] in chapter-2.qmd
 ```
 
-You then decide whether the concept deserves an entry. The full setup is in
+You decide whether the concept gets an entry. The full setup is in
 [Writing with agents](agents.qmd).
 
 ## How it compares
