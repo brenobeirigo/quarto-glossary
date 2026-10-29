@@ -1,0 +1,45 @@
+name: Bug report
+description: A render fails, or the output is wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use a small example with made-up terms. Do not paste private documents,
+        vocabularies, file paths, or credentials.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal example
+      description: A `.qmd` file, and the vocabulary entries it uses, that show the problem.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Console output
+      description: The lines that start with `glossary:` or `glossary warning:`, and any Quarto error.
+      render: console
+  - type: dropdown
+    id: format
+    attributes:
+      label: Output format
+      multiple: true
+      options: [HTML, PDF (LaTeX), Typst, Word, Other]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `quarto --version` and `quarto list extensions`.
+    validations:
+      required: true

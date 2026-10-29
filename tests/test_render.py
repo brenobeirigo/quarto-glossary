@@ -585,9 +585,183 @@ class GlossaryRenderTests(unittest.TestCase):
         duplicate = self.render(project, "html")
         self.assertNotEqual(duplicate.returncode, 0)
         self.assertIn(
-            "duplicate glossary id 'speed' in physics.yml and glossary.entries",
+            "glossary id 'speed' is defined differently in physics.yml and "
+            "glossary.entries (term differs)",
             duplicate.stdout + duplicate.stderr,
         )
+
+    def test_included_fragments_bring_their_own_entries(self) -> None:
+        project = self.make_project(
+            "Intro.\n\n{{< include part-a.qmd >}}\n\n"
+            "::: {.exercise}\n{{< include part-b.qmd >}}\n:::\n\n"
+            "{{< include part-a.qmd >}}\n\n"
+            "<!-- {{< include unused.qmd >}} -->\n\n"
+            "::: {.glossary}\n:::\n",
+            glossary_name=None,
+            bibliography=False,
+        )
+        source = (project / "test.qmd").read_text(encoding="utf-8")
+        (project / "test.qmd").write_text(
+            source.replace("glossary:\n", "glossary:\n  link: true\n", 1),
+            encoding="utf-8",
+        )
+
+        def fragment(name: str, entry: str, body: str) -> None:
+            (project / name).write_text(
+                f"---\nglossary:\n  entries:\n    - {entry}\n---\n\n{body}\n",
+                encoding="utf-8",
+            )
+
+        nested = "{id: nested-list, term: nested list, definition: A list of lists.}"
+        fragment("part-a.qmd", nested, "Read a [[nested-list]].")
+        fragment(
+            "part-b.qmd",
+            "{id: pass, term: pass, definition: One run of the outer loop.}",
+            "Count each [[pass]].\n\n{{< include part-a.qmd >}}",
+        )
+        fragment("unused.qmd", "{id: pass, term: pass, definition: Other.}", "")
+
+        self.assert_success(self.render(project, "html"))
+        html = (project / "test.html").read_text(encoding="utf-8")
+        self.assertEqual(html.count('data-glossary-id="nested-list"'), 3)
+        self.assertIn('data-glossary-id="pass"', html)
+        self.assertIn('id="glossary-nested-list"', html)
+        self.assertIn('id="glossary-pass"', html)
+        self.assertNotRegex(html, r"\[\[|glossary:\s*entries|id: nested-list")
+
+        fragment(
+            "part-b.qmd",
+            "{id: nested-list, term: nested list, definition: Another meaning.}",
+            "Count each [[nested-list]].",
+        )
+        conflict = self.render(project, "html")
+        self.assertNotEqual(conflict.returncode, 0)
+        self.assertIn(
+            "glossary id 'nested-list' is defined differently in part-a.qmd and "
+            "part-b.qmd (definition differs)",
+            conflict.stdout + conflict.stderr,
+        )
+
+    def test_included_fragment_keeps_the_page_settings(self) -> None:
+        project = self.make_project(
+            "[[adp]] and [[pass]].\n\n{{< include part.qmd >}}\n\n"
+            "::: {.glossary}\n:::\n",
+            bibliography=False,
+        )
+        (project / "part.qmd").write_text(
+            "---\nglossary:\n  entries:\n"
+            "    - {id: pass, term: pass, definition: One run of the loop.}\n"
+            "---\n\nCount each [[pass]].\n",
+            encoding="utf-8",
+        )
+        self.assert_success(self.render(project, "html"))
+        html = (project / "test.html").read_text(encoding="utf-8")
+        self.assertIn('id="glossary-adp"', html)
+        self.assertIn('id="glossary-pass"', html)
+
+        (project / "part.qmd").write_text(
+            (project / "part.qmd").read_text(encoding="utf-8").replace(
+                "Count each [[pass]].", "Count each [[passs]]."
+            ),
+            encoding="utf-8",
+        )
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "unknown glossary key [[passs]] in part.qmd:7; did you mean [[pass]]?",
+            result.stdout + result.stderr,
+        )
+
+    def test_text_problems_are_reported_together_with_suggestions(self) -> None:
+        project = self.make_project(
+            "[[ADP]], [[decison-epoch]], [[adp|cap:plurl]], and [[zzz]].\n\n"
+            "Again [[zzz]].\n"
+        )
+        result = self.render(project, "html")
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("glossary: 4 problems:", output)
+        self.assertIn(
+            "unknown glossary key [[ADP]] in test.qmd:9; did you mean [[adp]]?", output
+        )
+        self.assertIn("did you mean [[decision-epoch]]?", output)
+        self.assertIn("unknown reference form 'cap:plurl' in test.qmd:9; "
+                      "did you mean 'cap:plural'?", output)
+        self.assertIn(
+            "unknown glossary key [[zzz]] in test.qmd:9, test.qmd:11\n", output
+        )
+
+        project = self.make_project(
+            "[[adp|plurals]] and [[adp|=plurals]].\n", glossary_options="strict: false"
+        )
+        result = self.render(project, "html")
+        self.assert_success(result)
+        output = result.stdout + result.stderr
+        self.assertEqual(output.count("did you mean the form 'plural'?"), 1)
+
+        project = self.make_project("[[nothing-here]].\n", glossary_options="strict: false")
+        result = self.render(project, "html")
+        self.assert_success(result)
+        self.assertIn("glossary warning: unknown glossary key [[nothing-here]]",
+                      result.stdout + result.stderr)
+
+    def test_vocabulary_mistakes_name_file_and_field(self) -> None:
+        project = self.make_project(
+            "[[child]].\n",
+            glossary_text=(
+                "entries:\n"
+                "  - {id: child, term: child, plurl: children, "
+                "definition: A young person.}\n"
+                "  - {id: category, term: category, definition: A class.}\n"
+                "  - {id: analysis, term: analysis, definition: A study.}\n"
+                "  - {id: box, term: box, definition: A container.}\n"
+            ),
+            bibliography=False,
+        )
+        source = (project / "test.qmd").read_text(encoding="utf-8")
+        (project / "test.qmd").write_text(
+            source.replace("[[child]].", "[[category|plural]], [[analysis|plural]], "
+                           "[[box|plural]], [[child]]."),
+            encoding="utf-8",
+        )
+        result = self.render(project, "html")
+        self.assert_success(result)
+        self.assertIn("entry 'child' in glossary.yml has unknown field 'plurl'; "
+                      "did you mean 'plural'?", result.stdout + result.stderr)
+        html = (project / "test.html").read_text(encoding="utf-8")
+        for plural in ("categories", "analyses", "boxes"):
+            self.assertIn(f">{plural}<", html)
+
+        (project / "glossary.yml").write_text(
+            "entries:\n  - {id: x, term: x, defintion: Typo.}\n", encoding="utf-8"
+        )
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        output = result.stdout + result.stderr
+        self.assertIn("entry 'x' in glossary.yml has no definition", output)
+        self.assertIn("did you mean 'definition'?", output)
+
+        (project / "glossary.yml").write_text("entries:\n  - id: [x\n", encoding="utf-8")
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("glossary: cannot parse glossary.yml:", result.stdout + result.stderr)
+
+    def test_top_level_entries_get_an_indentation_hint(self) -> None:
+        project = self.make_project("[[x]].\n", glossary_name=None, bibliography=False)
+        (project / "test.qmd").write_text(
+            "---\ntitle: Test\nfilters: [glossary]\nentries:\n"
+            "  - {id: x, term: x, definition: An x.}\n---\n\n[[x]].\n",
+            encoding="utf-8",
+        )
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Indent it under glossary:", result.stdout + result.stderr)
+
+    def test_heading_only_use_reaches_the_pdf_list(self) -> None:
+        project = self.make_project("# About [[adp]]\n\nText.\n\n::: {.glossary}\n:::\n")
+        self.assert_success(self.render(project, "latex"))
+        latex = (project / "test.tex").read_text(encoding="utf-8")
+        self.assertIn(r"\glsadd{adp}", latex)
 
     def test_missing_vocabulary_file_explains_both_sources(self) -> None:
         project = self.make_project("[[adp]].\n", glossary_name=None)
@@ -677,6 +851,78 @@ class GlossaryRenderTests(unittest.TestCase):
                 with self.subTest(target=target, body=body[-20:]):
                     self.assert_success(self.render(project, target))
                     self.assertTrue((project / output).exists())
+
+    def test_vocabulary_listing_and_page_warnings(self) -> None:
+        project = self.make_project(
+            "## Intro\n\nOnly [[speed]].\n",
+            glossary_options=INLINE_ENTRIES,
+            glossary_name=None,
+        )
+        result = self.run_command(
+            [QUARTO, "render", "test.qmd", "--to", "html", "-M", "glossary-list:true"],
+            project,
+        )
+        self.assert_success(result)
+        output = result.stdout + result.stderr
+        self.assertIn("glossary entry: [[si]]\tacronym\tSI (International System of Units)",
+                      output)
+        self.assertIn("glossary entry: [[speed]]\tterm\tspeed\tglossary.entries", output)
+        # velocity is defined on the page and never used; si is not printed
+        # either, since only velocity names it.
+        self.assertIn("entry 'velocity' is defined for test.qmd but never used", output)
+        self.assertIn("has no ::: {.glossary} placeholder", output)
+
+        source = (project / "test.qmd").read_text(encoding="utf-8")
+        (project / "test.qmd").write_text(
+            source.replace("Only [[speed]].", "[[velocity]] and [[speed]].\n\n"
+                           "::: {.glossary}\n:::"),
+            encoding="utf-8",
+        )
+        result = self.render(project, "html")
+        self.assert_success(result)
+        self.assertNotIn("glossary warning", result.stdout + result.stderr)
+        html = (project / "test.html").read_text(encoding="utf-8")
+        # The lists follow the page's top section level, ##.
+        self.assertRegex(html, r'<h2[^>]*>Glossary</h2>')
+
+    def test_pdf_acronym_list_matches_html(self) -> None:
+        project = self.make_project("[[adp]].\n\n::: {.glossary}\n:::\n")
+        self.assert_success(self.render(project, "latex"))
+        latex = (project / "test.tex").read_text(encoding="utf-8")
+        self.assertIn(r"\renewcommand*{\glsxtrlongshortdescsort}"
+                      r"{\expandonce\glsxtrorgshort}", latex)
+
+
+class VocabularySchemaTests(unittest.TestCase):
+    SCHEMA = PACKAGE_ROOT / "_extensions" / "glossary" / "glossary.schema.json"
+
+    def test_schema_knows_every_field_the_filter_reads(self) -> None:
+        schema = json.loads(self.SCHEMA.read_text(encoding="utf-8"))
+        fields = set(schema["definitions"]["entry"]["properties"])
+        lua = (PACKAGE_ROOT / "_extensions" / "glossary" / "glossary.lua").read_text(
+            encoding="utf-8"
+        )
+        block = re.search(r"local entry_fields = \{\}\nfor _, name in ipairs\(\{(.*?)\}\)",
+                          lua, flags=re.S)
+        self.assertIsNotNone(block)
+        self.assertEqual(fields, set(re.findall(r'"([^"]+)"', block.group(1))))
+
+    def test_vocabularies_validate(self) -> None:
+        try:
+            import jsonschema
+            import yaml
+        except ImportError:
+            self.skipTest("jsonschema and PyYAML are not installed")
+        validator = jsonschema.Draft7Validator(
+            json.loads(self.SCHEMA.read_text(encoding="utf-8"))
+        )
+        for path in (PACKAGE_ROOT / "glossary.yml", PACKAGE_ROOT / "docs" / "glossary.yml"):
+            with self.subTest(path=path.name):
+                errors = list(validator.iter_errors(
+                    yaml.safe_load(path.read_text(encoding="utf-8"))))
+                self.assertEqual(errors, [], [error.message for error in errors])
+        typo = {"entries": [{"id": "x", "term": "x", "defintion": "Typo."}]}
+        self.assertTrue(list(validator.iter_errors(typo)))
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../_extensions/glossary/glossary.schema.json
 entries:
   - id: controlled-vocabulary
     term: controlled vocabulary

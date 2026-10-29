@@ -15,7 +15,7 @@ description: Complete vocabulary fields, project options, and validation behavio
 | `html-definition-display` | `balloon` | Choose `balloon` or `tooltip` |
 | `title` | `Glossary` | Ordinary-term list title |
 | `acronym-title` | `Acronyms` | Acronym-list title |
-| `heading-level` | `1` | Generated HTML heading level |
+| `heading-level` | page's top section level | Generated HTML heading level |
 | `html-glossary-page` | empty | Page holding the lists; references on other pages link there |
 | `latex-load-package` | `true` | Load the selected LaTeX package |
 | `latex-package` | `glossaries-extra` | Choose `glossaries-extra` or `glossaries` |
@@ -97,8 +97,41 @@ New vocabularies should use the canonical field names shown above.
 
 ## Validation
 
-The render fails for duplicate IDs (within one source or across files and
-`entries`), a missing vocabulary file, unknown reference keys in strict mode,
-unknown `see` or `see-also` targets, invalid HTML display modes, unsupported
-LaTeX packages or backends, and incompatible base-package features. These
-checks make vocabulary mistakes visible during local rendering and CI.
+The render fails for an ID repeated in one source or defined differently in
+two sources, a missing or unreadable vocabulary file, an entry without its
+required fields, unknown reference keys and unknown `cap:` forms in strict
+mode, unknown `see` or `see-also` targets, invalid HTML display modes,
+unsupported LaTeX packages or backends, and incompatible base-package
+features. Every unknown key in a document is reported in one message, with
+`file:line` for each use and the nearest defined key.
+
+Warnings (lines starting `glossary warning:`) do not stop the render. They
+name misspelt entry fields, one-word display text close to a form name,
+entries written for the page but never used, and a page that uses terms
+without a `::: {.glossary}` placeholder or `html-glossary-page`. Set
+`link: false` on a page that intentionally has no list.
+
+## List the vocabulary
+
+Render a page with `glossary-list` to print every entry it can use, with its
+kind, label, and source:
+
+```console
+$ quarto render chapter.qmd -M glossary-list:true 2>&1 | grep '^glossary entry'
+glossary entry: [[adp]]	acronym	ADP (approximate dynamic programming)	glossary.yml
+glossary entry: [[decision-epoch]]	term	decision epoch	glossary.yml
+```
+
+The list includes the project's files, the page's own entries, and entries
+from included fragments.
+
+## Editor support
+
+The extension ships a JSON Schema for vocabulary files. With the YAML
+extension for VS Code, or any editor using `yaml-language-server`, add this
+first line to `glossary.yml` for completion, field descriptions, and
+underlined typos:
+
+```yaml
+# yaml-language-server: $schema=_extensions/brenobeirigo/glossary/glossary.schema.json
+```

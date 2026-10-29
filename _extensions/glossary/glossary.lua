@@ -11,24 +11,163 @@
 -- Entries come from one or more YAML/JSON files (glossary.path), from the
 -- document or project metadata (glossary.entries), or from both.
 
-local VERSION = "0.5.0"
+local VERSION = "0.6.0"
 
 local registry = nil
 local settings = nil
 local used = {}
+local referenced_in_body = {}
 local seen = {}
 local document_meta = nil
 local glossary_citation_ids = {}
 local document_has_glossary = false
 local document_lists_all = false
+local document_top_level = 1
 
 local function fail(message)
   io.stderr:write("glossary: " .. tostring(message) .. "\n")
   os.exit(1)
 end
 
+local function warn(message)
+  io.stderr:write("glossary warning: " .. tostring(message) .. "\n")
+end
+
+-- Problems in the text are collected, so one render reports all of them.
+local problems = {}
+
 local function trim(value)
   return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function edit_distance(left, right)
+  if math.abs(#left - #right) > 3 then
+    return 4
+  end
+  local previous = {}
+  for j = 0, #right do
+    previous[j] = j
+  end
+  for i = 1, #left do
+    local current = {[0] = i}
+    for j = 1, #right do
+      local cost = left:sub(i, i) == right:sub(j, j) and 0 or 1
+      current[j] = math.min(previous[j] + 1, current[j - 1] + 1,
+        previous[j - 1] + cost)
+    end
+    previous = current
+  end
+  return previous[#right]
+end
+
+local function display_path(path)
+  local base = (quarto.project and quarto.project.directory) or
+    pandoc.system.get_working_directory()
+  if base and pandoc.path.is_absolute(path) then
+    local relative = pandoc.path.make_relative(path, base)
+    if not relative:match("^%.%.") then
+      return (relative:gsub("\\", "/"))
+    end
+  end
+  return (path:gsub("\\", "/"))
+end
+
+local function input_label()
+  local input = quarto.doc.input_file
+  if not input then
+    return "the input document"
+  end
+  local base = (quarto.project and quarto.project.directory) or
+    pandoc.system.get_working_directory()
+  if base and pandoc.path.is_absolute(input) then
+    local relative = pandoc.path.make_relative(input, base)
+    if not relative:match("^%.%.") then
+      return (relative:gsub("\\", "/"))
+    end
+  end
+  return input
+end
+
+local reported = {}
+
+local function report(message)
+  if reported[message] then
+    return
+  end
+  reported[message] = true
+  if settings.strict then
+    problems[#problems + 1] = message
+  else
+    warn(message)
+  end
+end
+
+-- The document and the files it includes, in reading order, so a problem in
+-- the text can be reported with file and line. Filled by the include scan.
+local source_files = {}
+local source_lines = {}
+
+local function lines_of(path)
+  if not source_lines[path] then
+    local lines = {}
+    local handle = io.open(path, "r")
+    if handle then
+      for line in handle:lines() do
+        lines[#lines + 1] = line
+      end
+      handle:close()
+    end
+    source_lines[path] = lines
+  end
+  return source_lines[path]
+end
+
+local function escape_pattern(text)
+  return (text:gsub("%p", "%%%0"))
+end
+
+-- "file:line" for every source line matching a Lua pattern, or the input
+-- document's name when the text is not found (for example, generated text).
+local function where(pattern)
+  local found = {}
+  for _, path in ipairs(source_files) do
+    for number, line in ipairs(lines_of(path)) do
+      if line:find(pattern) then
+        found[#found + 1] = display_path(path) .. ":" .. number
+      end
+    end
+  end
+  if #found == 0 then
+    return input_label()
+  end
+  return table.concat(found, ", ")
+end
+
+-- The closest name among candidates (a list or a set's keys), or nil.
+local function nearest(name, candidates)
+  local best, best_distance = nil, 3
+  local lowered = name:lower()
+  local function consider(candidate)
+    local distance = candidate:lower() == lowered and 0 or
+      edit_distance(lowered, candidate:lower())
+    if distance < best_distance or
+        (distance == best_distance and best and candidate < best) then
+      best, best_distance = candidate, distance
+    end
+  end
+  if candidates[1] ~= nil then
+    for _, candidate in ipairs(candidates) do
+      consider(candidate)
+    end
+  else
+    for candidate in pairs(candidates) do
+      consider(candidate)
+    end
+  end
+  if best and best_distance <= math.max(1, math.floor(#name / 4)) then
+    return best
+  end
+  return nil
 end
 
 local function meta_text(value, fallback)
@@ -116,7 +255,15 @@ local function decode_source(path)
   -- Pandoc reads YAML metadata reliably when it is wrapped as a metadata
   -- block. This keeps the extension dependency-free.
   local wrapped = "---\n" .. raw .. "\n---\n"
-  local parsed = pandoc.read(wrapped, "markdown")
+  local ok, parsed = pcall(pandoc.read, wrapped, "markdown")
+  if not ok then
+    -- Line numbers count the `---` line added above.
+    local reason = (tostring(parsed):match("[^\n]+") or tostring(parsed))
+      :gsub("line (%d+)", function(line)
+        return "line " .. math.max(1, tonumber(line) - 1)
+      end)
+    fail("cannot parse " .. display_path(path) .. ": " .. reason)
+  end
   return parsed.meta
 end
 
@@ -218,21 +365,56 @@ local function row_list(row, names)
   return pandoc.List({})
 end
 
+-- Regular English plurals of the last word. Irregular words (child, mouse,
+-- criterion) still need an explicit `plural`.
+local function english_plural(text)
+  local lowered = text:lower()
+  if lowered:match("[^aeiou]y$") then
+    return text:sub(1, -2) .. "ies"
+  end
+  if lowered:match("[^aeiou]is$") and #lowered > 4 then
+    return text:sub(1, -3) .. "es"
+  end
+  if lowered:match("[sxz]$") or lowered:match("[cs]h$") then
+    return text .. "es"
+  end
+  return text .. "s"
+end
+
+local entry_fields = {}
+for _, name in ipairs({
+    "id", "key", "label", "kind", "type", "term", "name", "short",
+    "abbreviation", "acronym", "long", "expansion", "text", "plural", "first",
+    "first-plural", "firstplural", "short-plural", "shortplural",
+    "long-plural", "longplural", "symbol", "description", "definition",
+    "tooltip", "sort", "see", "see-also", "seealso"}) do
+  entry_fields[name] = true
+end
+
 local function normalize_entry(row, source_path)
   local entry = {}
   entry.id = row_value(row, {"id", "key", "label"}, "")
   if entry.id == "" then
     fail("entry in " .. source_path .. " has no id")
   end
+  local where = "entry '" .. entry.id .. "' in " .. source_path
   if not entry.id:match("^[%w][%w_.:%-]*$") then
-    fail("id '" .. entry.id ..
-      "' must start with a letter or number and contain only letters, " ..
-      "numbers, underscore, period, colon, or hyphen")
+    fail(where .. ": id must start with a letter or number and contain " ..
+      "only letters, numbers, underscore, period, colon, or hyphen")
+  end
+  if type(row) == "table" then
+    for field in pairs(row) do
+      if type(field) == "string" and not entry_fields[field] then
+        local suggestion = nearest(field, entry_fields)
+        warn(where .. " has unknown field '" .. field .. "'" ..
+          (suggestion and ("; did you mean '" .. suggestion .. "'?") or ""))
+      end
+    end
   end
 
   entry.kind = row_value(row, {"kind", "type"}, "term"):lower()
   if entry.kind ~= "term" and entry.kind ~= "acronym" then
-    fail("entry '" .. entry.id .. "' has unsupported kind '" .. entry.kind ..
+    fail(where .. " has unsupported kind '" .. entry.kind ..
       "' (expected term or acronym)")
   end
   entry.term = row_value(row, {"term", "name"}, "")
@@ -293,7 +475,7 @@ local function normalize_entry(row, source_path)
     end
   else
     if entry.term == "" then
-      fail("entry '" .. entry.id .. "' has no term or name")
+      fail(where .. " has no term")
     end
     if entry.tooltip == "" then
       entry.tooltip = entry.definition
@@ -302,7 +484,7 @@ local function normalize_entry(row, source_path)
       entry.text = entry.term
     end
     if entry.plural == "" then
-      entry.plural = entry.text .. "s"
+      entry.plural = english_plural(entry.text)
     end
     if entry.first == "" then
       entry.first = entry.text
@@ -312,8 +494,12 @@ local function normalize_entry(row, source_path)
     end
   end
 
+  if entry.kind == "acronym" and (entry.short == "" or entry.long == "") then
+    fail(where .. " is an acronym without " ..
+      (entry.short == "" and "short" or "long"))
+  end
   if entry.definition == "" then
-    fail("entry '" .. entry.id .. "' has no definition")
+    fail(where .. " has no definition")
   end
   if entry.sort == "" then
     entry.sort = entry.short ~= "" and entry.short or entry.term
@@ -357,12 +543,197 @@ local function inline_rows(config)
   return rows
 end
 
+-- Front matter of files pulled in with {{< include >}}. Quarto merges it with
+-- the enclosing document, so a second include can replace the first one's
+-- glossary.entries; the filter reads every included file itself instead.
+local included_metadata_patterns = {}
+
+local function front_matter(raw)
+  raw = raw:gsub("^\239\187\191", ""):gsub("\r\n", "\n")
+  local yaml = raw:match("^%-%-%-[ \t]*\n(.-)\n%-%-%-[ \t]*\n")
+  if not yaml then
+    return {}, nil
+  end
+  return pandoc.read("---\n" .. yaml .. "\n---\n", "markdown").meta, yaml
+end
+
+local function block_signature(block)
+  return block.t .. ":" ..
+    trim(pandoc.utils.stringify(block):gsub("%s+", " "))
+end
+
+-- An include in the middle of a document, especially inside a fenced div, can
+-- leave its front matter in the body as ordinary Markdown. Remember the blocks
+-- that exact front matter parses to, so they can be removed again.
+local function remember_metadata_pattern(yaml)
+  for _, reader in ipairs({
+      "markdown-yaml_metadata_block-simple_tables-multiline_tables-pipe_tables+smart",
+      "markdown-yaml_metadata_block-simple_tables-multiline_tables-pipe_tables-smart",
+      "markdown-yaml_metadata_block+smart",
+      "markdown-yaml_metadata_block-smart"}) do
+    local parsed = pandoc.read("---\n" .. yaml .. "\n---\n", reader)
+    local pattern = {}
+    for _, block in ipairs(parsed.blocks) do
+      pattern[#pattern + 1] = block_signature(block)
+    end
+    if #pattern > 0 then
+      included_metadata_patterns[#included_metadata_patterns + 1] = pattern
+    end
+  end
+end
+
+local function strip_included_metadata(blocks)
+  if #included_metadata_patterns == 0 then
+    return nil
+  end
+  local result, index, changed = pandoc.Blocks({}), 1, false
+  while index <= #blocks do
+    local length = 0
+    for _, pattern in ipairs(included_metadata_patterns) do
+      local matches = index + #pattern - 1 <= #blocks
+      for offset = 1, matches and #pattern or 0 do
+        if block_signature(blocks[index + offset - 1]) ~= pattern[offset] then
+          matches = false
+          break
+        end
+      end
+      if matches then
+        length = #pattern
+        break
+      end
+    end
+    if length > 0 then
+      index = index + length
+      changed = true
+    else
+      result:insert(blocks[index])
+      index = index + 1
+    end
+  end
+  return changed and result or nil
+end
+
+-- Entry lists in the front matter of included files, nested includes first
+-- found first. Commented-out includes are ignored.
+local function included_entry_sources()
+  local sources, visited = pandoc.List({}), {}
+  source_files, source_lines = {}, {}
+  local input = tostring(quarto.doc.input_file or "")
+  if input == "" or not path_exists(input) then
+    return sources
+  end
+  local function visit(path, included)
+    path = pandoc.path.normalize(path)
+    if visited[path] then
+      return
+    end
+    visited[path] = true
+    source_files[#source_files + 1] = path
+    local raw = read_file(path)
+    if included then
+      local meta, yaml = front_matter(raw)
+      if meta.glossary then
+        sources.replace_settings = true
+      end
+      if meta.glossary and meta.glossary.entries then
+        sources:insert({rows = meta.glossary.entries, path = display_path(path)})
+        remember_metadata_pattern(yaml)
+      end
+    end
+    raw = raw:gsub("<!%-%-.-%-%->", "")
+    for before, target in raw:gmatch("(.?){{<%s*include%s+([^>]-)%s*>}}") do
+      -- `{{{< include >}}}` is Quarto's escaped, literal form.
+      if before == "{" then
+        goto continue
+      end
+      target = trim(target):gsub('^"(.-)"$', "%1"):gsub("^'(.-)'$", "%1")
+      local candidates = {}
+      if target:match("^/") and quarto.project and quarto.project.directory then
+        candidates[1] = pandoc.path.join({quarto.project.directory, target:sub(2)})
+      else
+        candidates[1] = pandoc.path.join({pandoc.path.directory(path), target})
+        candidates[2] = resolve_source_path(target)
+      end
+      for _, candidate in ipairs(candidates) do
+        if path_exists(candidate) then
+          visit(candidate, true)
+          break
+        end
+      end
+      ::continue::
+    end
+  end
+  visit(input, false)
+  return sources
+end
+
+local compared_fields = {
+  "kind", "term", "short", "long", "text", "plural", "first", "first_plural",
+  "short_plural", "long_plural", "symbol", "definition", "tooltip", "sort",
+  "see", "see_also",
+}
+
+-- The first field in which two definitions of one id differ, or nil.
+local function entry_difference(left, right)
+  for _, field in ipairs(compared_fields) do
+    local a, b = left[field], right[field]
+    if type(a) == "table" then
+      if #a ~= #b then
+        return field
+      end
+      for index, item in ipairs(a) do
+        if item ~= b[index] then
+          return field
+        end
+      end
+    elseif a ~= b then
+      return field
+    end
+  end
+  return nil
+end
+
+-- The glossary block that governs the page when an included fragment has its
+-- own: Quarto lets the fragment's block replace the page's. The page's front
+-- matter wins, then the folder's _metadata.yml, then _quarto.yml.
+local function own_glossary_config()
+  local input = tostring(quarto.doc.input_file or "")
+  local meta = front_matter(read_file(input))
+  if meta.glossary then
+    return meta.glossary
+  end
+  local folders = {pandoc.path.directory(input)}
+  if quarto.project and quarto.project.directory then
+    folders[#folders + 1] = quarto.project.directory
+  end
+  for index, folder in ipairs(folders) do
+    local name = index == 1 and "_metadata.yml" or "_quarto.yml"
+    local file = pandoc.path.join({folder, name})
+    if path_exists(file) then
+      local config = decode_source(file).glossary
+      if config then
+        return config
+      end
+    end
+  end
+  return {}
+end
+
 local function load_registry(meta)
+  local included = included_entry_sources()
+  if meta.glossary == nil and meta.entries ~= nil then
+    fail("found entries: at the top level of the metadata. Indent it " ..
+      "under glossary:, as glossary: then   entries:")
+  end
   local config = meta.glossary or {}
+  if included.replace_settings then
+    config = own_glossary_config()
+  end
   local rows = inline_rows(config)
   local paths = vocabulary_paths(config.path)
   if paths == nil then
-    paths = #rows > 0 and pandoc.List({}) or pandoc.List({"glossary.yml"})
+    paths = (#rows > 0 or #included > 0) and pandoc.List({}) or
+      pandoc.List({"glossary.yml"})
   end
 
   settings = {
@@ -375,7 +746,8 @@ local function load_registry(meta)
     load_latex_package = meta_bool(config["latex-load-package"], true),
     title = meta_text(config.title, "Glossary"),
     acronym_title = meta_text(config["acronym-title"], "Acronyms"),
-    heading_level = tonumber(meta_text(config["heading-level"], "1")) or 1,
+    -- Unset: the lists' headings match the page's top section level.
+    heading_level = tonumber(meta_text(config["heading-level"], "")),
     latex_package = meta_text(config["latex-package"],
       "glossaries-extra"):lower(),
     latex_backend = meta_text(config["latex-backend"], "noidx"):lower(),
@@ -414,12 +786,23 @@ local function load_registry(meta)
     has_acronyms = false,
     has_terms = false,
   }
+  -- The same entry may arrive from several places: a fragment included twice,
+  -- or front matter that Quarto merged into the document. Identical copies
+  -- are one entry; a second, different meaning stops the render.
   local function add_entry(entry)
     local existing = result.current[entry.id]
     if existing then
-      local where = existing.source == entry.source and entry.source or
-        existing.source .. " and " .. entry.source
-      fail("duplicate glossary id '" .. entry.id .. "' in " .. where)
+      if existing.source == entry.source then
+        fail("duplicate glossary id '" .. entry.id .. "' in " .. entry.source)
+      end
+      local field = entry_difference(existing, entry)
+      if field == nil then
+        return
+      end
+      fail("glossary id '" .. entry.id .. "' is defined differently in " ..
+        existing.source .. " and " .. entry.source .. " (" ..
+        field:gsub("_", "-") .. " differs). Give one of them another id, " ..
+        "or make the two definitions identical")
     end
     result.current[entry.id] = entry
     result.ordered:insert(entry)
@@ -442,6 +825,26 @@ local function load_registry(meta)
       end
       for _, row in ipairs(source_rows(decode_source(resolved))) do
         add_entry(normalize_entry(row, path))
+      end
+    end
+  end
+  -- Included files come before the document's own entries, which may hold
+  -- copies Quarto merged from them, so a conflict names the files involved.
+  -- Entries written for this page (its own front matter and its fragments)
+  -- should all be used; entries from shared files need not be.
+  result.page_owned = {}
+  for _, source in ipairs(included) do
+    for _, row in ipairs(source.rows) do
+      add_entry(normalize_entry(row, source.path))
+      result.page_owned[row_value(row, {"id", "key", "label"}, "")] = true
+    end
+  end
+  local input = tostring(quarto.doc.input_file or "")
+  if input ~= "" and path_exists(input) then
+    local own = front_matter(read_file(input))
+    if own.glossary and is_list_value(own.glossary.entries) then
+      for _, row in ipairs(own.glossary.entries) do
+        result.page_owned[row_value(row, {"id", "key", "label"}, "")] = true
       end
     end
   end
@@ -525,6 +928,11 @@ local reference_forms = {
   symbol = true,
 }
 
+local form_names = {capitalized = true}
+for name in pairs(reference_forms) do
+  form_names[name] = true
+end
+
 local function parse_reference_spec(display)
   if display == "" then
     return {form = "auto", capitalized = false}
@@ -541,6 +949,24 @@ local function parse_reference_spec(display)
   end
   if reference_forms[display] then
     return {form = display, capitalized = false}
+  end
+  if capitalized_form then
+    local suggestion = nearest(capitalized_form, reference_forms)
+    report("unknown reference form '" .. display .. "' in " ..
+      where("|%s*" .. escape_pattern(display) .. "%s*%]%]") ..
+      (suggestion and ("; did you mean 'cap:" .. suggestion .. "'?") or ""))
+    return {custom = display}
+  end
+  -- A single word close to a form name is probably a misspelt form, but it
+  -- may be wanted text ("test" is one letter from "text"), so only warn.
+  if display:match("^[%l%-]+$") then
+    local suggestion = nearest(display, form_names)
+    if suggestion then
+      warn("[[...|" .. display .. "]] in " ..
+        where("|%s*" .. escape_pattern(display) .. "%s*%]%]") ..
+        " is shown as literal text; did you mean the form '" .. suggestion ..
+        "'? Write '=" .. display .. "' to keep the text and silence this")
+    end
   end
   return {custom = display}
 end
@@ -632,30 +1058,19 @@ end
 
 -- Error messages name the document relative to the project or working
 -- directory, which is shorter and keeps local paths out of CI logs.
-local function input_label()
-  local input = quarto.doc.input_file
-  if not input then
-    return "the input document"
-  end
-  local base = (quarto.project and quarto.project.directory) or
-    pandoc.system.get_working_directory()
-  if base and pandoc.path.is_absolute(input) then
-    local relative = pandoc.path.make_relative(input, base)
-    if not relative:match("^%.%.") then
-      return (relative:gsub("\\", "/"))
-    end
-  end
-  return input
-end
-
 local function lookup_entry(id)
   local entry = registry.current[id]
   if entry then
     return entry
   end
-  if settings.strict then
-    fail("unknown glossary key [[" .. id .. "]] in " .. input_label())
+  local ids = {}
+  for _, known in ipairs(registry.ordered) do
+    ids[#ids + 1] = known.id
   end
+  local suggestion = nearest(id, ids)
+  report("unknown glossary key [[" .. id .. "]] in " ..
+    where("%[%[%s*" .. escape_pattern(id) .. "%s*[|%]]") ..
+    (suggestion and ("; did you mean [[" .. suggestion .. "]]?") or ""))
   return nil
 end
 
@@ -681,6 +1096,7 @@ end
 
 local function latex_reference(entry, display)
   used[entry.id] = true
+  referenced_in_body[entry.id] = true
   local spec = parse_reference_spec(display)
   if spec.custom == nil and spec.form == "auto" then
     local command = spec.capitalized and "\\Gls{" or "\\gls{"
@@ -732,10 +1148,11 @@ local function html_reference(entry, display)
   local spec = parse_reference_spec(display)
   local content = reference_content(entry, spec, false)
   local definition = plain_definition(entry.tooltip)
+  -- The term keeps its own accessible name. The balloon script links the
+  -- definition with aria-describedby while it is shown.
   local attributes = {
     {"tabindex", "0"},
     {"data-glossary-id", entry.id},
-    {"aria-label", pandoc.utils.stringify(content) .. ": " .. definition},
   }
   local classes = {"glossary-term"}
   local link_title = ""
@@ -753,6 +1170,9 @@ local function html_reference(entry, display)
     table.insert(classes, 1, "glossary-link")
     return pandoc.Link(content, html_glossary_target(entry), link_title,
       pandoc.Attr("", classes, attributes))
+  end
+  if settings.html_definition_display == "balloon" then
+    attributes[#attributes + 1] = {"role", "button"}
   end
   return pandoc.Span(content,
     pandoc.Attr("", classes, attributes))
@@ -978,12 +1398,16 @@ local function html_entry_list(entries, extra_class)
     local term = pandoc.Span(label_inlines,
       pandoc.Attr("glossary-" .. entry.id, {"glossary-entry"}))
     local description = markdown_blocks(entry.definition)
+    local related_line = pandoc.Inlines({})
     local function append_related(title, related)
       if #related == 0 then
         return
       end
       local inlines = pandoc.Inlines({pandoc.Emph({pandoc.Str(title .. ":")}),
         pandoc.Space()})
+      if #related_line > 0 then
+        related_line:extend({pandoc.Space(), pandoc.Str("·"), pandoc.Space()})
+      end
       for index, related_id in ipairs(related) do
         local related_entry = registry.current[related_id]
         if index > 1 then
@@ -993,10 +1417,14 @@ local function html_entry_list(entries, extra_class)
         inlines:insert(pandoc.Link(markdown_inlines(default_display(related_entry)),
           "#glossary-" .. related_id))
       end
-      description:insert(pandoc.Para(inlines))
+      related_line:extend(inlines)
     end
     append_related("See", entry.see)
     append_related("See also", entry.see_also)
+    if #related_line > 0 then
+      description:insert(pandoc.Div({pandoc.Plain(related_line)},
+        pandoc.Attr("", {"glossary-related"})))
+    end
     -- One definition holding every block, so the list grid keeps one <dd>
     -- per <dt> even with several paragraphs or a See line.
     items:insert({{term}, {description}})
@@ -1016,7 +1444,8 @@ local function append_html_section(blocks, entries, level, title, identifier,
 end
 
 local function html_glossary(div)
-  local level = tonumber(div.attributes.level) or settings.heading_level
+  local level = tonumber(div.attributes.level) or settings.heading_level or
+    document_top_level
   local include_all = placeholder_lists_all(div)
   local blocks = pandoc.Blocks({})
   append_html_section(blocks, entries_to_print("acronym", include_all), level,
@@ -1037,10 +1466,17 @@ local function latex_glossary(div)
     commands:insert("\\glsaddall")
   elseif settings.latex_backend ~= "bib2gls" then
     -- bib2gls selects these itself ("recorded and deps").
+    -- This includes entries used only in headings, which stay plain text.
     local printed = printed_ids(false)
     for _, entry in ipairs(registry.ordered) do
-      if printed[entry.id] and not used[entry.id] then
+      if printed[entry.id] and not referenced_in_body[entry.id] then
         commands:insert("\\glsadd{" .. entry.id .. "}")
+      end
+    end
+  else
+    for id in pairs(used) do
+      if not referenced_in_body[id] then
+        commands:insert("\\glsadd{" .. id .. "}")
       end
     end
   end
@@ -1269,6 +1705,18 @@ local function latex_definitions()
     if settings.latex_package == "glossaries-extra" then
       lines:insert("\\setabbreviationstyle[acronym]{" ..
         latex_escape(settings.acronym_style) .. "}")
+      if settings.acronym_style == "long-short-desc" then
+        -- List acronyms as in HTML, "SHORT (long form)", sorted by the
+        -- abbreviation that readers meet in the text. First use in the text
+        -- keeps "long form (SHORT)".
+        lines:insert("\\renewcommand*{\\glsxtrlongshortdescname}{" ..
+          "\\glsxpabbrvfont{\\the\\glsshorttok}{\\glscategorylabel}" ..
+          "\\protect\\glsxtrfullsep{\\the\\glslabeltok}" ..
+          "\\protect\\glsxtrparen{\\glsxplongfont{\\the\\glslongtok}" ..
+          "{\\glscategorylabel}}}")
+        lines:insert("\\renewcommand*{\\glsxtrlongshortdescsort}{" ..
+          "\\expandonce\\glsxtrorgshort}")
+      end
     else
       lines:insert("\\setacronymstyle{" ..
         latex_escape(settings.acronym_style) .. "}")
@@ -1336,13 +1784,33 @@ end
 
 function Pandoc(doc)
   used = {}
+  referenced_in_body = {}
+  problems = {}
+  reported = {}
   seen = {}
   document_meta = doc.meta
   glossary_citation_ids = {}
+  included_metadata_patterns = {}
   registry = load_registry(doc.meta)
+  doc = doc:walk({Blocks = strip_included_metadata})
+  -- `quarto render page.qmd -M glossary-list:true` prints the vocabulary the
+  -- page can use, for authors and agents choosing a key.
+  if meta_bool(doc.meta["glossary-list"], false) then
+    for _, entry in ipairs(registry.ordered) do
+      local label = entry.kind == "acronym" and
+        (entry.short .. " (" .. entry.long .. ")") or entry.term
+      io.stderr:write("glossary entry: [[" .. entry.id .. "]]\t" ..
+        entry.kind .. "\t" .. label .. "\t" .. entry.source .. "\n")
+    end
+  end
   -- A page with its own glossary list keeps in-page links.
   document_has_glossary = false
   document_lists_all = false
+  local top_level = nil
+  doc:walk({Header = function(header)
+    top_level = math.min(top_level or header.level, header.level)
+  end})
+  document_top_level = top_level or 1
   doc:walk({Div = function(div)
     if div.classes:includes("glossary") then
       document_has_glossary = true
@@ -1357,6 +1825,28 @@ function Pandoc(doc)
   -- as uses. The next walk expands references in ordinary body content.
   doc = doc:walk({Header = expand_heading})
   doc = doc:walk({Inlines = expand_inlines})
+  if #problems > 0 then
+    fail(#problems == 1 and problems[1] or
+      (#problems .. " problems:\n  " .. table.concat(problems, "\n  ")))
+  end
+
+  if not document_lists_all then
+    local printed = printed_ids(false)
+    for _, entry in ipairs(registry.ordered) do
+      if registry.page_owned[entry.id] and not printed[entry.id] then
+        warn("entry '" .. entry.id .. "' is defined for " .. input_label() ..
+          " but never used. Reference it as [[" .. entry.id ..
+          "]] or remove it")
+      end
+    end
+  end
+  if next(used) and not document_has_glossary and settings.link and
+      settings.html_glossary_page == "" and
+      (FORMAT:match("html") or FORMAT:match("latex")) then
+    warn(input_label() .. " uses glossary terms but has no ::: {.glossary} " ..
+      "placeholder, so no list is printed. Add one, or set glossary.link: " ..
+      "false if this page needs no list")
+  end
 
   -- References have now been recorded, so a glossary placeholder can appear
   -- before or after the prose that uses its entries.

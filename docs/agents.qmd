@@ -27,34 +27,51 @@ list at the end.
 
 ## Instructions to copy
 
+Replace `glossary.yml` with wherever your vocabulary lives: one or more
+files, the `glossary.entries` of a document, or the front matter of included
+fragments.
+
 ```markdown
 ## Vocabulary
 
 - Use only the terms defined in glossary.yml. Refer to each one as [[id]],
   for example [[sample-size]]. Use [[id|plural]] for plurals and
   [[id|cap:plural]] at the start of a sentence.
-- Do not paraphrase a defined term or invent a synonym for it.
+- Do not paraphrase a defined term or invent a synonym for it, and do not
+  use custom display text ([[id|other words]]) to introduce one.
 - If a concept has no entry, stop and propose one with id, term, and
   definition. Do not add it to glossary.yml without approval.
 - Keep definitions to one or two plain sentences. Put arguments and
   citations in the text.
-- Run `quarto render` before you finish. An unknown key fails the build.
+- Before choosing a key, list the vocabulary the page can use:
+  `quarto render <page> -M glossary-list:true 2>&1 | grep '^glossary entry'`.
+- Run `quarto render` before you finish. Read the lines that start with
+  `glossary:` or `glossary warning:` (`quarto render 2>&1 | grep '^glossary'`).
+  One message lists every unknown key in a document, with the nearest
+  existing key where there is one. Fix all of them before rendering again.
 ```
 
 ## What a failure looks like
 
-When the agent writes a key that the vocabulary does not define, the render
-stops and names the key and the file:
+When the agent writes keys that the vocabulary does not define, the render
+stops and lists every one of them, with a suggestion where a defined key is
+close:
 
 ```console
 $ quarto render chapter-2.qmd
-glossary: unknown glossary key [[robust-estimator]] in chapter-2.qmd
+glossary: 2 problems:
+  unknown glossary key [[robust-estimator]] in chapter-2.qmd:41
+  unknown glossary key [[Sample-size]] in chapter-2.qmd:12, chapter-2.qmd:58; did you mean [[sample-size]]?
 ```
 
-A duplicate key fails the same way and names both places it was defined:
+A key with two different definitions fails the same way and names both
+places and the field that differs. Identical copies, such as a fragment
+included twice, are accepted:
 
 ```console
-glossary: duplicate glossary id 'se' in glossary.yml and glossary.entries
+glossary: glossary id 'se' is defined differently in glossary.yml and
+glossary.entries (definition differs). Give one of them another id, or make
+the two definitions identical
 ```
 
 Either message is a prompt for a decision: add the entry, or rewrite the
