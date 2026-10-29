@@ -24,8 +24,21 @@
   with Enter or Space.
 - Lists: the two-column grid now applies, See and See also share one smaller
   line, and printed pages drop the term underline.
-- Add a troubleshooting table to the manual and update the agent
-  instructions.
+- Give unknown keys and forms a `file:line` for every use, including uses
+  inside included fragments, and report each one once.
+- Print the vocabulary a page can use with
+  `quarto render page.qmd -M glossary-list:true`.
+- Warn about entries written for a page but never used, and about a page
+  that uses terms without a list or `html-glossary-page`.
+- Without `heading-level`, the lists' headings match the page's top section
+  level.
+- PDF acronym lists read "SHORT (long form)" sorted by the abbreviation, as
+  in HTML (glossaries-extra with the default `long-short-desc`).
+- Ship `glossary.schema.json` for completion and typo checks in editors that
+  use `yaml-language-server`.
+- Shorten the README to install, basic use, reference forms, and
+  troubleshooting; the manual holds the rest. Add a troubleshooting table to
+  the manual and update the agent instructions.
 
 ## 0.5.0
 

@@ -43,6 +43,8 @@ fragments.
   definition. Do not add it to glossary.yml without approval.
 - Keep definitions to one or two plain sentences. Put arguments and
   citations in the text.
+- Before choosing a key, list the vocabulary the page can use:
+  `quarto render <page> -M glossary-list:true 2>&1 | grep '^glossary entry'`.
 - Run `quarto render` before you finish. Read the lines that start with
   `glossary:` or `glossary warning:` (`quarto render 2>&1 | grep '^glossary'`).
   One message lists every unknown key in a document, with the nearest
@@ -58,8 +60,8 @@ close:
 ```console
 $ quarto render chapter-2.qmd
 glossary: 2 problems:
-  unknown glossary key [[robust-estimator]] in chapter-2.qmd
-  unknown glossary key [[Sample-size]] in chapter-2.qmd; did you mean [[sample-size]]?
+  unknown glossary key [[robust-estimator]] in chapter-2.qmd:41
+  unknown glossary key [[Sample-size]] in chapter-2.qmd:12, chapter-2.qmd:58; did you mean [[sample-size]]?
 ```
 
 A key with two different definitions fails the same way and names both

@@ -22,6 +22,7 @@ local document_meta = nil
 local glossary_citation_ids = {}
 local document_has_glossary = false
 local document_lists_all = false
+local document_top_level = 1
 
 local function fail(message)
   io.stderr:write("glossary: " .. tostring(message) .. "\n")
@@ -59,6 +60,18 @@ local function edit_distance(left, right)
   return previous[#right]
 end
 
+local function display_path(path)
+  local base = (quarto.project and quarto.project.directory) or
+    pandoc.system.get_working_directory()
+  if base and pandoc.path.is_absolute(path) then
+    local relative = pandoc.path.make_relative(path, base)
+    if not relative:match("^%.%.") then
+      return (relative:gsub("\\", "/"))
+    end
+  end
+  return (path:gsub("\\", "/"))
+end
+
 local function input_label()
   local input = quarto.doc.input_file
   if not input then
@@ -75,12 +88,59 @@ local function input_label()
   return input
 end
 
+local reported = {}
+
 local function report(message)
+  if reported[message] then
+    return
+  end
+  reported[message] = true
   if settings.strict then
     problems[#problems + 1] = message
   else
     warn(message)
   end
+end
+
+-- The document and the files it includes, in reading order, so a problem in
+-- the text can be reported with file and line. Filled by the include scan.
+local source_files = {}
+local source_lines = {}
+
+local function lines_of(path)
+  if not source_lines[path] then
+    local lines = {}
+    local handle = io.open(path, "r")
+    if handle then
+      for line in handle:lines() do
+        lines[#lines + 1] = line
+      end
+      handle:close()
+    end
+    source_lines[path] = lines
+  end
+  return source_lines[path]
+end
+
+local function escape_pattern(text)
+  return (text:gsub("%p", "%%%0"))
+end
+
+-- "file:line" for every source line matching a Lua pattern, or the input
+-- document's name when the text is not found (for example, generated text).
+local function where(pattern)
+  local found = {}
+  for _, path in ipairs(source_files) do
+    for number, line in ipairs(lines_of(path)) do
+      if line:find(pattern) then
+        found[#found + 1] = display_path(path) .. ":" .. number
+      end
+    end
+  end
+  if #found == 0 then
+    return input_label()
+  end
+  return table.concat(found, ", ")
 end
 
 -- The closest name among candidates (a list or a set's keys), or nil.
@@ -179,18 +239,6 @@ local function read_file(path)
   local raw = handle:read("*a")
   handle:close()
   return raw
-end
-
-local function display_path(path)
-  local base = (quarto.project and quarto.project.directory) or
-    pandoc.system.get_working_directory()
-  if base and pandoc.path.is_absolute(path) then
-    local relative = pandoc.path.make_relative(path, base)
-    if not relative:match("^%.%.") then
-      return (relative:gsub("\\", "/"))
-    end
-  end
-  return (path:gsub("\\", "/"))
 end
 
 local function decode_source(path)
@@ -569,6 +617,7 @@ end
 -- found first. Commented-out includes are ignored.
 local function included_entry_sources()
   local sources, visited = pandoc.List({}), {}
+  source_files, source_lines = {}, {}
   local input = tostring(quarto.doc.input_file or "")
   if input == "" or not path_exists(input) then
     return sources
@@ -579,6 +628,7 @@ local function included_entry_sources()
       return
     end
     visited[path] = true
+    source_files[#source_files + 1] = path
     local raw = read_file(path)
     if included then
       local meta, yaml = front_matter(raw)
@@ -696,7 +746,8 @@ local function load_registry(meta)
     load_latex_package = meta_bool(config["latex-load-package"], true),
     title = meta_text(config.title, "Glossary"),
     acronym_title = meta_text(config["acronym-title"], "Acronyms"),
-    heading_level = tonumber(meta_text(config["heading-level"], "1")) or 1,
+    -- Unset: the lists' headings match the page's top section level.
+    heading_level = tonumber(meta_text(config["heading-level"], "")),
     latex_package = meta_text(config["latex-package"],
       "glossaries-extra"):lower(),
     latex_backend = meta_text(config["latex-backend"], "noidx"):lower(),
@@ -779,9 +830,22 @@ local function load_registry(meta)
   end
   -- Included files come before the document's own entries, which may hold
   -- copies Quarto merged from them, so a conflict names the files involved.
+  -- Entries written for this page (its own front matter and its fragments)
+  -- should all be used; entries from shared files need not be.
+  result.page_owned = {}
   for _, source in ipairs(included) do
     for _, row in ipairs(source.rows) do
       add_entry(normalize_entry(row, source.path))
+      result.page_owned[row_value(row, {"id", "key", "label"}, "")] = true
+    end
+  end
+  local input = tostring(quarto.doc.input_file or "")
+  if input ~= "" and path_exists(input) then
+    local own = front_matter(read_file(input))
+    if own.glossary and is_list_value(own.glossary.entries) then
+      for _, row in ipairs(own.glossary.entries) do
+        result.page_owned[row_value(row, {"id", "key", "label"}, "")] = true
+      end
     end
   end
   for _, row in ipairs(rows) do
@@ -888,7 +952,8 @@ local function parse_reference_spec(display)
   end
   if capitalized_form then
     local suggestion = nearest(capitalized_form, reference_forms)
-    report("unknown reference form '" .. display .. "' in " .. input_label() ..
+    report("unknown reference form '" .. display .. "' in " ..
+      where("|%s*" .. escape_pattern(display) .. "%s*%]%]") ..
       (suggestion and ("; did you mean 'cap:" .. suggestion .. "'?") or ""))
     return {custom = display}
   end
@@ -897,7 +962,8 @@ local function parse_reference_spec(display)
   if display:match("^[%l%-]+$") then
     local suggestion = nearest(display, form_names)
     if suggestion then
-      warn("[[...|" .. display .. "]] in " .. input_label() ..
+      warn("[[...|" .. display .. "]] in " ..
+        where("|%s*" .. escape_pattern(display) .. "%s*%]%]") ..
         " is shown as literal text; did you mean the form '" .. suggestion ..
         "'? Write '=" .. display .. "' to keep the text and silence this")
     end
@@ -1002,7 +1068,8 @@ local function lookup_entry(id)
     ids[#ids + 1] = known.id
   end
   local suggestion = nearest(id, ids)
-  report("unknown glossary key [[" .. id .. "]] in " .. input_label() ..
+  report("unknown glossary key [[" .. id .. "]] in " ..
+    where("%[%[%s*" .. escape_pattern(id) .. "%s*[|%]]") ..
     (suggestion and ("; did you mean [[" .. suggestion .. "]]?") or ""))
   return nil
 end
@@ -1377,7 +1444,8 @@ local function append_html_section(blocks, entries, level, title, identifier,
 end
 
 local function html_glossary(div)
-  local level = tonumber(div.attributes.level) or settings.heading_level
+  local level = tonumber(div.attributes.level) or settings.heading_level or
+    document_top_level
   local include_all = placeholder_lists_all(div)
   local blocks = pandoc.Blocks({})
   append_html_section(blocks, entries_to_print("acronym", include_all), level,
@@ -1637,6 +1705,18 @@ local function latex_definitions()
     if settings.latex_package == "glossaries-extra" then
       lines:insert("\\setabbreviationstyle[acronym]{" ..
         latex_escape(settings.acronym_style) .. "}")
+      if settings.acronym_style == "long-short-desc" then
+        -- List acronyms as in HTML, "SHORT (long form)", sorted by the
+        -- abbreviation that readers meet in the text. First use in the text
+        -- keeps "long form (SHORT)".
+        lines:insert("\\renewcommand*{\\glsxtrlongshortdescname}{" ..
+          "\\glsxpabbrvfont{\\the\\glsshorttok}{\\glscategorylabel}" ..
+          "\\protect\\glsxtrfullsep{\\the\\glslabeltok}" ..
+          "\\protect\\glsxtrparen{\\glsxplongfont{\\the\\glslongtok}" ..
+          "{\\glscategorylabel}}}")
+        lines:insert("\\renewcommand*{\\glsxtrlongshortdescsort}{" ..
+          "\\expandonce\\glsxtrorgshort}")
+      end
     else
       lines:insert("\\setacronymstyle{" ..
         latex_escape(settings.acronym_style) .. "}")
@@ -1706,15 +1786,31 @@ function Pandoc(doc)
   used = {}
   referenced_in_body = {}
   problems = {}
+  reported = {}
   seen = {}
   document_meta = doc.meta
   glossary_citation_ids = {}
   included_metadata_patterns = {}
   registry = load_registry(doc.meta)
   doc = doc:walk({Blocks = strip_included_metadata})
+  -- `quarto render page.qmd -M glossary-list:true` prints the vocabulary the
+  -- page can use, for authors and agents choosing a key.
+  if meta_bool(doc.meta["glossary-list"], false) then
+    for _, entry in ipairs(registry.ordered) do
+      local label = entry.kind == "acronym" and
+        (entry.short .. " (" .. entry.long .. ")") or entry.term
+      io.stderr:write("glossary entry: [[" .. entry.id .. "]]\t" ..
+        entry.kind .. "\t" .. label .. "\t" .. entry.source .. "\n")
+    end
+  end
   -- A page with its own glossary list keeps in-page links.
   document_has_glossary = false
   document_lists_all = false
+  local top_level = nil
+  doc:walk({Header = function(header)
+    top_level = math.min(top_level or header.level, header.level)
+  end})
+  document_top_level = top_level or 1
   doc:walk({Div = function(div)
     if div.classes:includes("glossary") then
       document_has_glossary = true
@@ -1732,6 +1828,24 @@ function Pandoc(doc)
   if #problems > 0 then
     fail(#problems == 1 and problems[1] or
       (#problems .. " problems:\n  " .. table.concat(problems, "\n  ")))
+  end
+
+  if not document_lists_all then
+    local printed = printed_ids(false)
+    for _, entry in ipairs(registry.ordered) do
+      if registry.page_owned[entry.id] and not printed[entry.id] then
+        warn("entry '" .. entry.id .. "' is defined for " .. input_label() ..
+          " but never used. Reference it as [[" .. entry.id ..
+          "]] or remove it")
+      end
+    end
+  end
+  if next(used) and not document_has_glossary and settings.link and
+      settings.html_glossary_page == "" and
+      (FORMAT:match("html") or FORMAT:match("latex")) then
+    warn(input_label() .. " uses glossary terms but has no ::: {.glossary} " ..
+      "placeholder, so no list is printed. Add one, or set glossary.link: " ..
+      "false if this page needs no list")
   end
 
   -- References have now been recorded, so a glossary placeholder can appear

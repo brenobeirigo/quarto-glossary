@@ -79,6 +79,13 @@ When `glossary` has neither `path` nor `entries`, the extension looks for
 `glossary.yml`. Relative paths are resolved against the project directory
 first and then against the document's directory.
 
+For completion and typo checks in VS Code and other editors that use
+`yaml-language-server`, start the file with:
+
+```yaml
+# yaml-language-server: $schema=_extensions/brenobeirigo/glossary/glossary.schema.json
+```
+
 The JSON form uses the same field names:
 
 ```json

@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/brenobeirigo/quarto-glossary/blob/main/_extensions/glossary/glossary.schema.json",
+  "title": "Quarto Glossary vocabulary",
+  "description": "A vocabulary file for the Quarto Glossary extension: a list of terms and acronyms referenced as [[id]].",
+  "type": "object",
+  "properties": {
+    "entries": {
+      "description": "The terms and acronyms. Order does not matter; lists are sorted.",
+      "type": "array",
+      "items": {"$ref": "#/definitions/entry"}
+    }
+  },
+  "required": ["entries"],
+  "definitions": {
+    "text": {"type": ["string", "number"]},
+    "keys": {
+      "description": "One key, a comma-separated list of keys, or a YAML list of keys.",
+      "oneOf": [
+        {"type": "string"},
+        {"type": "array", "items": {"type": "string"}}
+      ]
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The key used in the text as [[id]]. Letters, numbers, underscore, period, colon, or hyphen.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "kind": {
+          "description": "term (default) or acronym.",
+          "enum": ["term", "acronym"]
+        },
+        "term": {"$ref": "#/definitions/text", "description": "The term as written in the list. Required for terms."},
+        "short": {"$ref": "#/definitions/text", "description": "Acronym: the abbreviation, such as API."},
+        "long": {"$ref": "#/definitions/text", "description": "Acronym: the expansion, such as application programming interface."},
+        "definition": {"type": "string", "description": "The definition shown in the list. Markdown, citations, and math are allowed."},
+        "tooltip": {"type": "string", "description": "A shorter plain-text definition for the balloon."},
+        "text": {"$ref": "#/definitions/text", "description": "The form used in running text, if it differs from term."},
+        "plural": {"$ref": "#/definitions/text", "description": "Plural form. Regular English plurals are formed automatically."},
+        "first": {"$ref": "#/definitions/text", "description": "Form used on first use."},
+        "first-plural": {"$ref": "#/definitions/text", "description": "Plural form used on first use."},
+        "short-plural": {"$ref": "#/definitions/text", "description": "Acronym: plural abbreviation. Defaults to short + s."},
+        "long-plural": {"$ref": "#/definitions/text", "description": "Acronym: plural expansion. Defaults to long + s."},
+        "symbol": {"type": "string", "description": "An associated symbol, such as $t$."},
+        "sort": {"$ref": "#/definitions/text", "description": "Sort key for the lists."},
+        "see": {"$ref": "#/definitions/keys", "description": "Entries to see instead."},
+        "see-also": {"$ref": "#/definitions/keys", "description": "Related entries."},
+        "key": {"type": "string", "description": "Older alias of id."},
+        "label": {"type": "string", "description": "Older alias of id."},
+        "type": {"enum": ["term", "acronym"], "description": "Older alias of kind."},
+        "name": {"$ref": "#/definitions/text", "description": "Older alias of term."},
+        "description": {"type": "string", "description": "Older alias of definition."},
+        "abbreviation": {"$ref": "#/definitions/text", "description": "Older alias of short."},
+        "acronym": {"$ref": "#/definitions/text", "description": "Older alias of short."},
+        "expansion": {"$ref": "#/definitions/text", "description": "Older alias of long."},
+        "firstplural": {"$ref": "#/definitions/text", "description": "Older spelling of first-plural."},
+        "shortplural": {"$ref": "#/definitions/text", "description": "Older spelling of short-plural."},
+        "longplural": {"$ref": "#/definitions/text", "description": "Older spelling of long-plural."},
+        "seealso": {"$ref": "#/definitions/keys", "description": "Older spelling of see-also."}
+      },
+      "anyOf": [
+        {"required": ["id"]},
+        {"required": ["key"]},
+        {"required": ["label"]}
+      ],
+      "if": {
+        "anyOf": [
+          {"properties": {"kind": {"const": "acronym"}}, "required": ["kind"]},
+          {"properties": {"type": {"const": "acronym"}}, "required": ["type"]}
+        ]
+      },
+      "then": {
+        "anyOf": [{"required": ["short"]}, {"required": ["abbreviation"]}, {"required": ["acronym"]}, {"required": ["term"]}]
+      },
+      "else": {
+        "allOf": [
+          {"anyOf": [{"required": ["term"]}, {"required": ["name"]}]},
+          {"anyOf": [{"required": ["definition"]}, {"required": ["description"]}, {"required": ["tooltip"]}]}
+        ]
+      }
+    }
+  }
+}

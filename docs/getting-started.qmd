@@ -91,7 +91,8 @@ websites with a shared glossary page.
 | `found entries: at the top level` | `entries:` must be indented under `glossary:`. |
 | `unknown glossary key [[apii]] …; did you mean [[api]]?` | A misspelt key. Every unknown key in the document is listed in one message. |
 | A wrong plural such as "childs" | Plurals of regular words are formed automatically. Give irregular ones a `plural:` field, or write `[[child|children]]` once. |
-| No Glossary or Acronyms list | The document has no `::: {.glossary}` placeholder. Without one, terms keep their balloons but are not links. |
+| `… has no ::: {.glossary} placeholder` | The page uses terms but prints no list, so terms are not links. Add the placeholder, or set `link: false` if the page needs no list. |
+| `entry 'x' is defined for … but never used` | An entry in the page's front matter or a fragment that no text references. Use it or remove it. |
 | `glossary warning: … unknown field 'plurl'` | A misspelt field in an entry. The warning suggests the right name. |
 
 ## Update
