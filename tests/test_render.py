@@ -585,8 +585,61 @@ class GlossaryRenderTests(unittest.TestCase):
         duplicate = self.render(project, "html")
         self.assertNotEqual(duplicate.returncode, 0)
         self.assertIn(
-            "duplicate glossary id 'speed' in physics.yml and glossary.entries",
+            "glossary id 'speed' is defined differently in physics.yml and "
+            "glossary.entries (term differs)",
             duplicate.stdout + duplicate.stderr,
+        )
+
+    def test_included_fragments_bring_their_own_entries(self) -> None:
+        project = self.make_project(
+            "Intro.\n\n{{< include part-a.qmd >}}\n\n"
+            "::: {.exercise}\n{{< include part-b.qmd >}}\n:::\n\n"
+            "{{< include part-a.qmd >}}\n\n"
+            "<!-- {{< include unused.qmd >}} -->\n\n"
+            "::: {.glossary}\n:::\n",
+            glossary_name=None,
+            bibliography=False,
+        )
+        source = (project / "test.qmd").read_text(encoding="utf-8")
+        (project / "test.qmd").write_text(
+            source.replace("glossary:\n", "glossary:\n  link: true\n", 1),
+            encoding="utf-8",
+        )
+
+        def fragment(name: str, entry: str, body: str) -> None:
+            (project / name).write_text(
+                f"---\nglossary:\n  entries:\n    - {entry}\n---\n\n{body}\n",
+                encoding="utf-8",
+            )
+
+        nested = "{id: nested-list, term: nested list, definition: A list of lists.}"
+        fragment("part-a.qmd", nested, "Read a [[nested-list]].")
+        fragment(
+            "part-b.qmd",
+            "{id: pass, term: pass, definition: One run of the outer loop.}",
+            "Count each [[pass]].\n\n{{< include part-a.qmd >}}",
+        )
+        fragment("unused.qmd", "{id: pass, term: pass, definition: Other.}", "")
+
+        self.assert_success(self.render(project, "html"))
+        html = (project / "test.html").read_text(encoding="utf-8")
+        self.assertEqual(html.count('data-glossary-id="nested-list"'), 3)
+        self.assertIn('data-glossary-id="pass"', html)
+        self.assertIn('id="glossary-nested-list"', html)
+        self.assertIn('id="glossary-pass"', html)
+        self.assertNotRegex(html, r"\[\[|glossary:\s*entries|id: nested-list")
+
+        fragment(
+            "part-b.qmd",
+            "{id: nested-list, term: nested list, definition: Another meaning.}",
+            "Count each [[nested-list]].",
+        )
+        conflict = self.render(project, "html")
+        self.assertNotEqual(conflict.returncode, 0)
+        self.assertIn(
+            "glossary id 'nested-list' is defined differently in part-a.qmd and "
+            "part-b.qmd (definition differs)",
+            conflict.stdout + conflict.stderr,
         )
 
     def test_missing_vocabulary_file_explains_both_sources(self) -> None:

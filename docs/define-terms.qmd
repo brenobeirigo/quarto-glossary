@@ -3,14 +3,15 @@ title: Ways to define terms
 description: Define glossary entries in a document's front matter, in one or more YAML or JSON files, or in both.
 ---
 
-Entries can come from three places. The extension reads all of them, checks
-for duplicate keys, and treats the result as one vocabulary.
+Entries can come from four places. The extension reads all of them, checks
+that no key has two meanings, and treats the result as one vocabulary.
 
 | Where | Option | Best for |
 |---|---|---|
 | The document's [[front-matter]] | `glossary.entries` | One self-contained document, a handout, a demo |
 | One [[yaml|short]] or [[json|short]] file | `glossary.path: glossary.yml` | A paper, a thesis, a course |
 | Several files | `glossary.path: [a.yml, b.yml]` | Shared vocabularies split by topic |
+| Included fragments | `glossary.entries` in the fragment | Reusable exercises, questions, sections |
 : Sources of glossary entries. {#tbl-sources}
 
 ## In the front matter
@@ -102,11 +103,17 @@ glossary:
     - course-2026.json
 ```
 
-A key defined in two places stops the render and names both:
+A key may appear in two places only if both copies say the same thing. A key
+with two different meanings stops the render, names both sources, and says
+which field differs:
 
 ```console
-glossary: duplicate glossary id 'se' in statistics.yml and acronyms.yml
+glossary: glossary id 'se' is defined differently in statistics.yml and
+acronyms.yml (definition differs). Give one of them another id, or make the
+two definitions identical
 ```
+
+A key repeated inside one file is always an error.
 
 ## Files plus page terms
 
@@ -125,6 +132,33 @@ glossary:
 
 Set `path: false` to load no file at all, for example when the project
 default should not apply to one page.
+
+## In included fragments
+
+A fragment brought in with `{{{< include >}}}` can carry its own entries, so
+an exercise or a section keeps its definitions wherever it is reused:
+
+```markdown
+---
+glossary:
+  entries:
+    - id: nested-list
+      term: nested list
+      definition: A list that contains other lists.
+---
+
+Write a function that flattens a [[nested-list]].
+```
+
+```markdown
+{{{< include exercises/flatten.qmd >}}}
+```
+
+The extension reads the front matter of every included file, including
+fragments included by other fragments, and ignores includes inside HTML
+comments. The same fragment can be included more than once. Keep rendering
+options in the enclosing document or project; a fragment needs only its
+`entries`.
 
 ## Websites and books
 

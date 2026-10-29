@@ -357,12 +357,169 @@ local function inline_rows(config)
   return rows
 end
 
+-- Front matter of files pulled in with {{< include >}}. Quarto merges it with
+-- the enclosing document, so a second include can replace the first one's
+-- glossary.entries; the filter reads every included file itself instead.
+local included_metadata_patterns = {}
+
+local function front_matter(raw)
+  raw = raw:gsub("^\239\187\191", ""):gsub("\r\n", "\n")
+  local yaml = raw:match("^%-%-%-[ \t]*\n(.-)\n%-%-%-[ \t]*\n")
+  if not yaml then
+    return {}, nil
+  end
+  return pandoc.read("---\n" .. yaml .. "\n---\n", "markdown").meta, yaml
+end
+
+local function block_signature(block)
+  return block.t .. ":" ..
+    trim(pandoc.utils.stringify(block):gsub("%s+", " "))
+end
+
+-- An include in the middle of a document, especially inside a fenced div, can
+-- leave its front matter in the body as ordinary Markdown. Remember the blocks
+-- that exact front matter parses to, so they can be removed again.
+local function remember_metadata_pattern(yaml)
+  for _, reader in ipairs({
+      "markdown-yaml_metadata_block-simple_tables-multiline_tables-pipe_tables+smart",
+      "markdown-yaml_metadata_block-simple_tables-multiline_tables-pipe_tables-smart",
+      "markdown-yaml_metadata_block+smart",
+      "markdown-yaml_metadata_block-smart"}) do
+    local parsed = pandoc.read("---\n" .. yaml .. "\n---\n", reader)
+    local pattern = {}
+    for _, block in ipairs(parsed.blocks) do
+      pattern[#pattern + 1] = block_signature(block)
+    end
+    if #pattern > 0 then
+      included_metadata_patterns[#included_metadata_patterns + 1] = pattern
+    end
+  end
+end
+
+local function strip_included_metadata(blocks)
+  if #included_metadata_patterns == 0 then
+    return nil
+  end
+  local result, index, changed = pandoc.Blocks({}), 1, false
+  while index <= #blocks do
+    local length = 0
+    for _, pattern in ipairs(included_metadata_patterns) do
+      local matches = index + #pattern - 1 <= #blocks
+      for offset = 1, matches and #pattern or 0 do
+        if block_signature(blocks[index + offset - 1]) ~= pattern[offset] then
+          matches = false
+          break
+        end
+      end
+      if matches then
+        length = #pattern
+        break
+      end
+    end
+    if length > 0 then
+      index = index + length
+      changed = true
+    else
+      result:insert(blocks[index])
+      index = index + 1
+    end
+  end
+  return changed and result or nil
+end
+
+local function display_path(path)
+  if quarto.project and quarto.project.directory then
+    local relative = pandoc.path.make_relative(path, quarto.project.directory)
+    if not relative:match("^%.%.") then
+      return (relative:gsub("\\", "/"))
+    end
+  end
+  return (path:gsub("\\", "/"))
+end
+
+-- Entry lists in the front matter of included files, nested includes first
+-- found first. Commented-out includes are ignored.
+local function included_entry_sources()
+  local sources, visited = pandoc.List({}), {}
+  local input = tostring(quarto.doc.input_file or "")
+  if input == "" or not path_exists(input) then
+    return sources
+  end
+  local function visit(path, included)
+    path = pandoc.path.normalize(path)
+    if visited[path] then
+      return
+    end
+    visited[path] = true
+    local raw = read_file(path)
+    if included then
+      local meta, yaml = front_matter(raw)
+      if meta.glossary and meta.glossary.entries then
+        sources:insert({rows = meta.glossary.entries, path = display_path(path)})
+        remember_metadata_pattern(yaml)
+      end
+    end
+    raw = raw:gsub("<!%-%-.-%-%->", "")
+    for before, target in raw:gmatch("(.?){{<%s*include%s+([^>]-)%s*>}}") do
+      -- `{{{< include >}}}` is Quarto's escaped, literal form.
+      if before == "{" then
+        goto continue
+      end
+      target = trim(target):gsub('^"(.-)"$', "%1"):gsub("^'(.-)'$", "%1")
+      local candidates = {}
+      if target:match("^/") and quarto.project and quarto.project.directory then
+        candidates[1] = pandoc.path.join({quarto.project.directory, target:sub(2)})
+      else
+        candidates[1] = pandoc.path.join({pandoc.path.directory(path), target})
+        candidates[2] = resolve_source_path(target)
+      end
+      for _, candidate in ipairs(candidates) do
+        if path_exists(candidate) then
+          visit(candidate, true)
+          break
+        end
+      end
+      ::continue::
+    end
+  end
+  visit(input, false)
+  return sources
+end
+
+local compared_fields = {
+  "kind", "term", "short", "long", "text", "plural", "first", "first_plural",
+  "short_plural", "long_plural", "symbol", "definition", "tooltip", "sort",
+  "see", "see_also",
+}
+
+-- The first field in which two definitions of one id differ, or nil.
+local function entry_difference(left, right)
+  for _, field in ipairs(compared_fields) do
+    local a, b = left[field], right[field]
+    if type(a) == "table" then
+      if #a ~= #b then
+        return field
+      end
+      for index, item in ipairs(a) do
+        if item ~= b[index] then
+          return field
+        end
+      end
+    elseif a ~= b then
+      return field
+    end
+  end
+  return nil
+end
+
 local function load_registry(meta)
   local config = meta.glossary or {}
   local rows = inline_rows(config)
+  local included = included_entry_sources()
   local paths = vocabulary_paths(config.path)
   if paths == nil then
-    paths = #rows > 0 and pandoc.List({}) or pandoc.List({"glossary.yml"})
+    paths = (#rows > 0 or #included > 0) and pandoc.List({}) or
+      pandoc.List({"glossary.yml"})
   end
 
   settings = {
@@ -414,12 +571,23 @@ local function load_registry(meta)
     has_acronyms = false,
     has_terms = false,
   }
+  -- The same entry may arrive from several places: a fragment included twice,
+  -- or front matter that Quarto merged into the document. Identical copies
+  -- are one entry; a second, different meaning stops the render.
   local function add_entry(entry)
     local existing = result.current[entry.id]
     if existing then
-      local where = existing.source == entry.source and entry.source or
-        existing.source .. " and " .. entry.source
-      fail("duplicate glossary id '" .. entry.id .. "' in " .. where)
+      if existing.source == entry.source then
+        fail("duplicate glossary id '" .. entry.id .. "' in " .. entry.source)
+      end
+      local field = entry_difference(existing, entry)
+      if field == nil then
+        return
+      end
+      fail("glossary id '" .. entry.id .. "' is defined differently in " ..
+        existing.source .. " and " .. entry.source .. " (" ..
+        field:gsub("_", "-") .. " differs). Give one of them another id, " ..
+        "or make the two definitions identical")
     end
     result.current[entry.id] = entry
     result.ordered:insert(entry)
@@ -443,6 +611,13 @@ local function load_registry(meta)
       for _, row in ipairs(source_rows(decode_source(resolved))) do
         add_entry(normalize_entry(row, path))
       end
+    end
+  end
+  -- Included files come before the document's own entries, which may hold
+  -- copies Quarto merged from them, so a conflict names the files involved.
+  for _, source in ipairs(included) do
+    for _, row in ipairs(source.rows) do
+      add_entry(normalize_entry(row, source.path))
     end
   end
   for _, row in ipairs(rows) do
@@ -1339,7 +1514,9 @@ function Pandoc(doc)
   seen = {}
   document_meta = doc.meta
   glossary_citation_ids = {}
+  included_metadata_patterns = {}
   registry = load_registry(doc.meta)
+  doc = doc:walk({Blocks = strip_included_metadata})
   -- A page with its own glossary list keeps in-page links.
   document_has_glossary = false
   document_lists_all = false
