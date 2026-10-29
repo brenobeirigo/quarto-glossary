@@ -5,8 +5,7 @@
 - Read `glossary.entries` from the front matter of `{{< include >}}`d
   fragments, including nested and repeated includes, and remove front matter
   that an include leaves in the body. A fragment's `glossary:` block no
-  longer replaces the page's options. Merged from the patched copy used by a
-  course project.
+  longer replaces the page's options.
 - Accept a key defined identically in several places. Two different meanings
   stop the render, name both sources, and say which field differs.
 - Report every unknown key in a document in one message, each with the
