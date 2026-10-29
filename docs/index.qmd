@@ -1,6 +1,8 @@
 ---
 title: Quarto Glossary
 description: LaTeX-style glossaries for Quarto. Define a term once and get hover definitions on the web and native glossaries in the PDF.
+image: images/social-card.png
+image-alt: A source document with wiki-link references next to the rendered page, where the first use of an acronym expands and a balloon shows the definition.
 page-layout: full
 toc: false
 body-classes: landing-page
