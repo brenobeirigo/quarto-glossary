@@ -12,7 +12,7 @@ body-classes: landing-page
 # Glossaries for Quarto, the way LaTeX does them {.hero-title}
 
 Write a key in double square brackets, the [[wiki-link]] syntax from
-Obsidian. Web readers hover over the term and see its
+Obsidian. Web readers hover over the term, or tap it on a phone, and see its
 definition. The PDF gets `\gls{key}` from LaTeX's `glossaries` package. Both
 come from one vocabulary that you write in YAML.
 
