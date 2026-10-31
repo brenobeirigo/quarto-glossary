@@ -9,9 +9,11 @@
   --soft: #f4f6f5;
   --line: #dfe3e1;
   --accent: #35b779;
-  --accent-strong: #187453;
+  --accent-strong: #00805a;
   --lime: #b1e35d;
   --on-dark: #eef1f4;
+  --code-value: #00805a;
+  --code-key: #31688e;
 }
 
 .quarto-dark {
@@ -21,6 +23,8 @@
   --soft: #24282c;
   --line: #3a4045;
   --accent-strong: #6fd3a3;
+  --code-value: #8fe0b8;
+  --code-key: #7db8da;
 }
 
 body {
@@ -103,6 +107,17 @@ h2::after {
 .sidebar,
 .quarto-title-meta {
   font-family: "Jost", "Segoe UI", sans-serif;
+}
+
+/* Code: values and strings in the green, keys and functions in the blue. */
+
+div.sourceCode code span.at,
+div.sourceCode code span.st {
+  color: var(--code-value);
+}
+
+div.sourceCode code span.fu {
+  color: var(--code-key);
 }
 
 /* Landing page */
