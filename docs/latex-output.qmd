@@ -82,6 +82,11 @@ entry that is only named by another entry's `see` or `see-also` is added to the
 lists with `\glsadd`, so the cross-reference in the PDF has a target. With
 `bib2gls`, the `recorded and deps` selection does the same.
 
+## Document classes
+
+The test renders use `article`, `report`, `memoir`, and `elsarticle`. A
+journal class can restrict packages, so check your journal's template.
+
 ## Base package compatibility
 
 Set `latex-package: glossaries` when a publisher forbids `glossaries-extra`.
