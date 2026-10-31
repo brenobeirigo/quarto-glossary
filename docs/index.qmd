@@ -67,8 +67,9 @@ The brackets come from Obsidian, where `[[Note name]]` links one note to
 another. I use them for terms. `[[key]]` refers to an entry, and
 `[[key|other text]]` changes the words on the page, as in an Obsidian link.
 
-I also draft with AI agents, and they drift. A few pages in, a model calls one
-concept by three names and starts using words like "leverage" and "seamless".
+I also draft paper ideas with AI agents, and they drift. A few pages in, a
+model calls one concept by three names and starts using software-engineering
+terms that no one in my field writes.
 I write mostly for science and education, where a term should mean one thing
 and students need to know what that thing is. A glossary file fixes the
 vocabulary for the agent and defines it for the reader.
@@ -137,7 +138,7 @@ glossary:
   path: [statistics.yml, acronyms.yml, course-2026.json]
 ```
 
-A key defined twice stops the render and names both sources.
+Identical copies of a key merge. Two different meanings stop the render and name both sources.
 
 ### File plus page terms
 
@@ -215,10 +216,10 @@ Add the vocabulary rules to the instructions file your agent reads, such as
 - Run `quarto render` before you finish. An unknown key fails the build.
 ```
 
-When the agent invents a key, the render stops and names it:
+When the agent invents a key, the render stops and gives the file and line:
 
 ```console
-glossary: unknown glossary key [[robust-estimator]] in chapter-2.qmd
+glossary: unknown glossary key [[robust-estimator]] in chapter-2.qmd:41
 ```
 
 You decide whether the concept gets an entry. The full setup is in

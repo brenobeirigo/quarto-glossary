@@ -60,7 +60,7 @@ cross-reference in a list always has a target.
 | `id` | Yes | Stable wiki-link key and output anchor |
 | `term` | Yes | Canonical singular label |
 | `definition` | Yes | Markdown-capable definition |
-| `plural` | No | Defaults to the term plus `s` |
+| `plural` | No | Defaults to the regular English plural of the term |
 | `text` | No | Explicit text form |
 | `first` | No | Explicit first-use form |
 | `first-plural` | No | Explicit plural first-use form |
