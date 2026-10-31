@@ -48,6 +48,8 @@ that state when the sentence requires it.
 For example, [[sample-size|cap:plural]] may differ between studies. The
 associated symbol is [[sample-size|symbol]].
 
+Inside a pipe table, escape the pipe so the table keeps its columns: `[[key\|plural]]`.
+
 ## Rich definitions
 
 Definitions may contain Markdown emphasis, links, mathematics, and Pandoc

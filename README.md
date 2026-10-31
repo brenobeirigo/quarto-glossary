@@ -6,8 +6,8 @@ Glossaries and acronym lists for Quarto, the way LaTeX's `glossaries` package
 does them. Write `[[key]]` in your text. Web readers get a definition balloon
 on hover, keyboard focus, or tap. The PDF gets native `\gls{key}` entries.
 The first use of an acronym expands it, later uses abbreviate it, and the
-lists at the end contain exactly the entries you cited. The `[[ ]]` syntax
-comes from [Obsidian's wikilinks](https://obsidian.md/help/links), including
+lists at the end contain exactly the entries you cited. The `[[ ]]` syntax is
+borrowed from [Obsidian's wikilinks](https://obsidian.md/help/links), including
 `[[key|other text]]` for display text.
 
 **[Manual, live demo, and comparison with other tools](https://brenobeirigo.github.io/quarto-glossary/)**
@@ -20,9 +20,8 @@ comes from [Obsidian's wikilinks](https://obsidian.md/help/links), including
   finger, and that callouts, tables, and captions cannot clip.
 - Separate Acronyms and Glossary lists, the same in HTML and PDF.
 - `glossaries-extra` or `glossaries`, with `noidx`, `makeindex`, or `bib2gls`.
-- Strict mode: unknown keys stop the render, all listed in one message with
-  file, line, and the nearest defined key. That keeps human and AI-agent
-  drafts on a fixed vocabulary.
+- Mistyped keys stop the render, all listed in one message with file, line,
+  and the nearest defined key.
 - No R, Python, or JavaScript dependencies. Requires Quarto 1.4 or newer.
 
 ## Install
@@ -113,7 +112,7 @@ covers the common cases.
 - [LaTeX output](https://brenobeirigo.github.io/quarto-glossary/latex-output.html):
   packages, `noidx`, `makeindex`, and `bib2gls` builds.
 - [Writing with agents](https://brenobeirigo.github.io/quarto-glossary/agents.html):
-  instructions to copy into `AGENTS.md` or `CLAUDE.md`.
+  what the vocabulary gives an agent, and what the render does not check.
 - [Configuration reference](https://brenobeirigo.github.io/quarto-glossary/reference.html):
   every option, field, and check.
 

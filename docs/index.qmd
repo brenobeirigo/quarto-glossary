@@ -2,7 +2,7 @@
 title: Quarto Glossary
 description: LaTeX-style glossaries for Quarto. Define a term once and get hover definitions on the web and native glossaries in the PDF.
 image: images/social-card.png
-image-alt: A source document with wiki-link references next to the rendered page, where the first use of an acronym expands and a balloon shows the definition.
+image-alt: A lesson source with [[se]] and [[ci]] references next to the rendered page, where acronyms expand on first use and a balloon shows the definition.
 page-layout: full
 toc: false
 body-classes: landing-page
@@ -11,10 +11,10 @@ body-classes: landing-page
 ::: {.hero}
 # Glossaries for Quarto, the way LaTeX does them {.hero-title}
 
-Write a key in double square brackets, the [[wiki-link]] syntax from
-Obsidian. Web readers hover over the term, or tap it on a phone, and see its
-definition. The PDF gets `\gls{key}` from LaTeX's `glossaries` package. Both
-come from one vocabulary that you write in YAML.
+Write a key in double square brackets, a [[wiki-link]] borrowed from Obsidian.
+Students and other web readers hover over the term, or tap it on a phone, and
+see its definition. The PDF uses LaTeX's `glossaries` package. Both come from
+one vocabulary that you write in YAML.
 
 ```bash
 quarto add brenobeirigo/quarto-glossary
@@ -35,18 +35,17 @@ keyboard.
 [You write]{.demo-label}
 
 ```markdown
-Agents built on [[llm|plural]] draft text
-quickly. A [[controlled-vocabulary]] keeps
-an [[llm]] on the terms your field
-already uses.
+A [[doi]] identifies the dataset. Its
+[[metadata]] record the [[sample-size]].
+Cite the [[doi]] in the paper.
 ```
 :::
 
 ::: {.demo-pane .demo-output}
 [Readers see]{.demo-label}
 
-Agents built on [[llm|plural]] draft text quickly. A [[controlled-vocabulary]]
-keeps an [[llm]] on the terms your field already uses.
+A [[doi]] identifies the dataset. Its [[metadata]] record the [[sample-size]].
+Cite the [[doi]] in the paper.
 :::
 :::
 
@@ -56,26 +55,20 @@ abbreviation. The second printed the abbreviation alone. LaTeX calls this the
 
 ## Why I built it
 
-[[latex]] has had the `glossaries` package for years. You define a term
-or an acronym once. The first use of an acronym expands it, later uses
+I write course notes and research papers in Quarto. [[latex]] has had the
+`glossaries` package for years. You define a term or an acronym once. The first use of an acronym expands it, later uses
 abbreviate it, and the list at the end of the document contains exactly the
-entries you cited. I wanted the same thing in Quarto for papers, lecture
-notes, and course websites. The Quarto extensions I found each covered part
-of it, so I wrote this one.
+entries you cited. I wanted the same thing in Quarto. The Quarto extensions I
+found each covered part of it, so I wrote this one.
 
-The brackets come from Obsidian, where `[[Note name]]` links one note to
+In teaching, a student meets a term and gets its definition at that word,
+without leaving the page. A course can share one vocabulary, and an exercise
+can carry its own terms into whichever chapter or exam includes it. In a
+paper, acronyms and term lists work as they do in LaTeX.
+
+I borrowed the brackets from Obsidian, where `[[Note name]]` links one note to
 another. I use them for terms. `[[key]]` refers to an entry, and
 `[[key|other text]]` changes the words on the page, as in an Obsidian link.
-
-I also draft paper ideas with AI agents, and they drift. A few pages in, a
-model calls one concept by three names and starts using software-engineering
-terms that no one in my field writes.
-I write mostly for science and education, where a term should mean one thing
-and students need to know what that thing is. A glossary file fixes the
-vocabulary for the agent and defines it for the reader.
-
-The agent writes `[[key]]`. When it invents a key, [[strict-mode]] stops the
-render. Students get the definition on hover.
 
 ## Define terms where they fit
 
@@ -201,29 +194,21 @@ attached to the page body, so this callout cannot clip it.
 
 The PDF uses `glossaries-extra` with the `long-short-desc` acronym style by
 default. `makeindex` and `bib2gls` are available for theses and books. Details
-are in [LaTeX and PDF output](latex-output.qmd).
+are in [LaTeX and PDF output](latex-output.qmd). Word and Typst output get plain
+references and the generated lists, with no balloons or `glossaries` package.
 
-## Writing with agents
+## Catching mistakes
 
-Add the vocabulary rules to the instructions file your agent reads, such as
-`AGENTS.md` or `CLAUDE.md`:
-
-```markdown
-## Vocabulary
-- Use only the terms defined in glossary.yml. Refer to each one as [[id]].
-- Do not paraphrase a defined term or invent a synonym for it.
-- If a concept has no entry, stop and propose one (id, term, definition).
-- Run `quarto render` before you finish. An unknown key fails the build.
-```
-
-When the agent invents a key, the render stops and gives the file and line:
+A mistyped key stops the render and gives the file, the line, and the nearest
+defined key, the way an unresolved cross-reference would:
 
 ```console
-glossary: unknown glossary key [[robust-estimator]] in chapter-2.qmd:41
+glossary: unknown glossary key [[sample-sise]] in chapter-2.qmd:41; did you mean [[sample-size]]?
 ```
 
-You decide whether the concept gets an entry. The full setup is in
-[Writing with agents](agents.qmd).
+If you work with an AI agent, the vocabulary is a plain file it can read. The
+check covers `[[key]]` references only, so it won't stop anyone from paraphrasing
+a term in plain text. See [Writing with agents](agents.qmd).
 
 ## How it compares
 

@@ -1,20 +1,18 @@
 ---
 title: Writing with agents
-description: Give writing and coding agents a fixed vocabulary, and let strict mode check what they produce.
+description: What a glossary gives an AI agent, what the render checks, and what it does not.
 ---
 
-## The problem
+## What it does and does not do
 
-Agents built on an [[llm]] write fast and drift in vocabulary. Over a long
-draft the same concept gets two or three names, and general-purpose words
-such as "leverage", "robust", and "seamless" show up in a methods section. In
-science and teaching that costs readers: a student who meets "decision
-point", "decision epoch", and "stage" in one chapter has to work out whether
-those are three ideas or one.
+A [[controlled-vocabulary]] gives an agent built on an [[llm]] a plain list of
+terms and their exact wording. The render stops on any `[[key]]` that is not in
+the list, which catches mistyped and invented keys.
 
-A [[controlled-vocabulary]] addresses both sides. The agent gets a fixed list
-of terms with their exact wording. The reader gets a definition on hover and a
-list at the end.
+The render does not read plain prose. An agent that writes "decision point"
+without brackets passes the render, even when the vocabulary says "decision
+epoch". Whether an agent uses your terms depends on your instructions and your
+review.
 
 ## Setup
 
@@ -94,5 +92,5 @@ project can do the same with the Quarto GitHub action:
 - run: quarto render
 ```
 
-An agent that opens a pull request with an undefined term then gets a red
-check before a person reviews the text.
+A pull request with an undefined key then gets a red check before a person
+reviews the text.
