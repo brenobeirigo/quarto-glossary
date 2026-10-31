@@ -48,6 +48,12 @@ that state when the sentence requires it.
 For example, [[sample-size|cap:plural]] may differ between studies. The
 associated symbol is [[sample-size|symbol]].
 
+References expand in the body and in the `title`, `subtitle`, `description`,
+and `abstract` metadata. Code and other metadata stay literal.
+
+An editor that rewrites Markdown through Pandoc may save a reference as
+`\[\[key\]\]`. The escaped form renders the same way.
+
 Inside a pipe table, escape the pipe so the table keeps its columns: `[[key\|plural]]`.
 
 ## Rich definitions

@@ -11,7 +11,7 @@
 -- Entries come from one or more YAML/JSON files (glossary.path), from the
 -- document or project metadata (glossary.entries), or from both.
 
-local VERSION = "0.6.0"
+local VERSION = "0.6.1"
 
 local registry = nil
 local settings = nil
@@ -107,12 +107,27 @@ end
 local source_files = {}
 local source_lines = {}
 
+-- A file's lines with code blanked, keeping line numbers, since the filter
+-- never expands references inside fenced blocks or inline code.
 local function lines_of(path)
   if not source_lines[path] then
     local lines = {}
     local handle = io.open(path, "r")
     if handle then
+      local fence = nil
       for line in handle:lines() do
+        local marker = line:match("^%s*(```+)") or line:match("^%s*(~~~+)")
+        if fence then
+          if marker and marker:sub(1, 1) == fence:sub(1, 1) and #marker >= #fence then
+            fence = nil
+          end
+          line = ""
+        elseif marker then
+          fence = marker
+          line = ""
+        else
+          line = line:gsub("(`+).-%1", "")
+        end
         lines[#lines + 1] = line
       end
       handle:close()
@@ -1782,6 +1797,29 @@ local function configure_output()
   end
 end
 
+-- References expand in the body and in metadata that readers see as text.
+-- Other metadata, such as image-alt, keeps any double brackets literally.
+local reference_metadata = {
+  title = true, subtitle = true, description = true, abstract = true,
+}
+
+local function walk_text(doc, filter)
+  local held = {}
+  for key, value in pairs(doc.meta) do
+    if not reference_metadata[key] then
+      held[key] = value
+    end
+  end
+  for key in pairs(held) do
+    doc.meta[key] = nil
+  end
+  doc = doc:walk(filter)
+  for key, value in pairs(held) do
+    doc.meta[key] = value
+  end
+  return doc
+end
+
 function Pandoc(doc)
   used = {}
   referenced_in_body = {}
@@ -1824,7 +1862,7 @@ function Pandoc(doc)
   -- inherits tooltip links or positioning styles. Heading keys still count
   -- as uses. The next walk expands references in ordinary body content.
   doc = doc:walk({Header = expand_heading})
-  doc = doc:walk({Inlines = expand_inlines})
+  doc = walk_text(doc, {Inlines = expand_inlines})
   if #problems > 0 then
     fail(#problems == 1 and problems[1] or
       (#problems .. " problems:\n  " .. table.concat(problems, "\n  ")))
