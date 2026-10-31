@@ -48,6 +48,9 @@ that state when the sentence requires it.
 For example, [[sample-size|cap:plural]] may differ between studies. The
 associated symbol is [[sample-size|symbol]].
 
+References expand in the body and in the `title`, `subtitle`, `description`,
+and `abstract` metadata. Code and other metadata stay literal.
+
 Inside a pipe table, escape the pipe so the table keeps its columns: `[[key\|plural]]`.
 
 ## Rich definitions

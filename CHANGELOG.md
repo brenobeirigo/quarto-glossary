@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1
+
+- Report an unknown key's location only where the filter would expand it. A
+  mention inside fenced or inline code no longer appears in the file and line
+  list.
+- Expand references in the body and in the `title`, `subtitle`, `description`,
+  and `abstract` metadata only. Double brackets in other metadata, such as
+  `image-alt`, stay literal and no longer stop the render.
+
 ## 0.6.0
 
 - Read `glossary.entries` from the front matter of `{{< include >}}`d

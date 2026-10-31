@@ -885,6 +885,39 @@ class GlossaryRenderTests(unittest.TestCase):
         # The lists follow the page's top section level, ##.
         self.assertRegex(html, r'<h2[^>]*>Glossary</h2>')
 
+    def test_locations_skip_code(self) -> None:
+        project = self.make_project(
+            "Inline `[[zzz]]` mention.\n\n"
+            "```markdown\n[[zzz]]\n```\n\n"
+            "~~~\n[[zzz]]\n~~~\n\n"
+            "Real [[zzz]] use.\n"
+        )
+        result = self.render(project, "html")
+        self.assertNotEqual(result.returncode, 0)
+        lines = (project / "test.qmd").read_text(encoding="utf-8").splitlines()
+        real = lines.index("Real [[zzz]] use.") + 1
+        self.assertIn(
+            f"unknown glossary key [[zzz]] in test.qmd:{real}\n",
+            result.stdout + result.stderr,
+        )
+
+    def test_only_reader_metadata_expands_references(self) -> None:
+        project = self.make_project("Text.\n", bibliography=False)
+        source = (project / "test.qmd").read_text(encoding="utf-8")
+        (project / "test.qmd").write_text(
+            source.replace(
+                "title: Test\n",
+                "title: Test\n"
+                "image-alt: A figure showing [[not-a-key]]\n"
+                "abstract: The [[adp]] policy.\n",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        self.assert_success(self.render(project, "html"))
+        html = (project / "test.html").read_text(encoding="utf-8")
+        self.assertIn('data-glossary-id="adp"', html)
+
     def test_pdf_acronym_list_matches_html(self) -> None:
         project = self.make_project("[[adp]].\n\n::: {.glossary}\n:::\n")
         self.assert_success(self.render(project, "latex"))
